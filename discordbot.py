@@ -7,12 +7,21 @@ import discord
 from discord.ext import commands
 import hmac
 import json
+import ccxt
+import lending
 
 
 with open("config.json") as config_file:
     config = json.load(config_file)
 
 TOKEN = config['discord_token']
+
+kucoin = ccxt.kucoin({
+    "apiKey": "nope",
+    "secret": 'nope',
+    "password": "nope",
+    'enableRateLimit': True,
+})
 
 bot = commands.Bot(command_prefix='!', help_command=None)
 
@@ -105,6 +114,12 @@ async def fiat(ctx, arg):
             await ctx.send("```Rate not found, please retry```")
     else:
         await ctx.send("invalid request, please retry")
+
+@bot.command(name='orderbook', description="Display a graph of the KuCoin USDT order book")
+async def kucoin_lending_volume(ctx):
+    chart_io_bytes = await lending.get_orderbook_graph(kucoin)
+    chart = discord.File(chart_io_bytes, filename="orderbook.png")
+    await ctx.send(file=chart)
 
 
 @bot.event
