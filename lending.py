@@ -42,7 +42,7 @@ def kucoin_lending_merge_interest_rate(orderbook):
 
     return sorted(merged.items())
 
-async def kucoin_lending_get_walls(kucoin, min_size=250, length=10):
+async def kucoin_lending_get_walls(kucoin, min_size, length=10):
     resp = kucoin.private_get_margin_market({'currency': 'USDT'})
     if resp['code'] != '200000':
         return f"KuCoin system error code: {resp['code']}"
