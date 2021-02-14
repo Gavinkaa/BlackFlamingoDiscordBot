@@ -51,8 +51,8 @@ async def kucoin_lending_get_walls(kucoin, min_size=250, length=10):
     walls = [f"- {float(rate) * 100:<5.3} :: {size:9,.0f} USDT"
              for (rate, size) in raw_walls if (size / 1000) >= min_size]
     return '''
-KuCoin Crypto Lending USDT walls (minimum of 250k):
+KuCoin Crypto Lending USDT walls (minimum of {:d}k):
 ```
 {}
 ```
-'''.format("\n".join(walls[:length]))
+'''.format(min_size,"\n".join(walls[:length]))
