@@ -137,7 +137,7 @@ async def lending_orderbook(ctx):
     chart = discord.File(chart_io_bytes, filename="orderbook.png")
     await ctx.send(file=chart)
 
-@lending.command(name='walls', brief="Display the list of walls (up to 10) (minimum 250k)", aliases=['w'])
+@lending.command(name='walls', brief="Display the list of walls (up to 10) (minimum 100k)", aliases=['w'])
 async def lending_walls(ctx, arg='100'):
     try:
         min_size = int(arg)
