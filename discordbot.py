@@ -8,7 +8,7 @@ from discord.ext import commands
 import hmac
 import json
 import ccxt
-import lending
+import lending as ld
 
 
 with open("config.json") as config_file:
@@ -23,11 +23,21 @@ kucoin = ccxt.kucoin({
     'enableRateLimit': True,
 })
 
-bot = commands.Bot(command_prefix='!')
+help_command = commands.DefaultHelpCommand(
+    no_category = 'Commands',
+)
+
+bot = commands.Bot(command_prefix='!', help_command = help_command)
 
 
-@bot.command(name='funding', brief="Display the actual and the predicted funding from bitmex")
+@bot.group(name='funding', brief="Commands related to the funding", aliases=['f'])
 async def funding(ctx):
+    if ctx.invoked_subcommand == None:
+        await ctx.send_help(funding)
+
+
+@funding.command(name='bitmex', brief="Display the actual and the predicted funding from bitmex", aliases=['b'])
+async def funding_bitmex(ctx):
     url = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     r = await requests.get(url)
     json = r.json()[0]
@@ -48,8 +58,8 @@ async def funding(ctx):
         ".\n📈 The rate is " + str(round(next_funding * 100, 4)) + "% 📈")
 
 
-@bot.command(name='predicted', brief="Display the predicted funding from several exchanges")
-async def funding(ctx):
+@funding.command(name='predicted', brief="Display the predicted funding from several exchanges", aliases=['p'])
+async def funding_predicted(ctx):
     # First we send all the requests
     url_bitmex = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     r_bitmex = requests.get(url_bitmex)
@@ -102,8 +112,8 @@ async def funding(ctx):
 
 
 @bot.command(name='fiat', brief="Display the asked fiat rate")
-async def fiat(ctx, arg):
-    if(len(arg) == 6, arg.isalpha()):
+async def fiat(ctx, arg='eurusd'):
+    if(len(arg) == 6 and arg.isalpha()):
         try:
             arg = arg.upper()
             url = "https://api.exchangeratesapi.io/latest?base=" + arg[0:3]
@@ -113,32 +123,28 @@ async def fiat(ctx, arg):
         except:
             await ctx.send("```Rate not found, please retry```")
     else:
-        await ctx.send("invalid request, please retry")
+        await ctx.send_help(fiat)
 
-@bot.command(name='lending', brief="Commands for the KuCoin Crypto Lending USDT section")
-async def kucoin_lending(ctx, subcommand = 'help', arg = ''):
-    if subcommand == 'orderbook' or subcommand == 'ob':
-        chart_io_bytes = await lending.get_orderbook_graph(kucoin)
-        chart = discord.File(chart_io_bytes, filename="orderbook.png")
-        await ctx.send(file=chart)
-    elif subcommand == 'walls':
-        msg = await lending.kucoin_lending_get_walls(kucoin)
-        await ctx.send("```This command will be implemented soon!```")
-        # await ctx.send(msg)
-    else:
-        usage = '''
-```
-# Commands for the KuCoin Crypto Lending USDT section
+@bot.group(name='lending', brief="Commands for the KuCoin Crypto Lending USDT section", aliases=['l'])
+async def lending(ctx):
+    if ctx.invoked_subcommand == None:
+        await ctx.send_help(lending)
 
-## Display a graph of the order book
-  !lending orderbook
-  !lending ob
 
-## Display the list of walls (minimum 250k)
-  !lending walls
-```
-'''
-        await ctx.send(usage)
+@lending.command(name='orderbook', brief="Display a graph of the order book", aliases=['ob'])
+async def lending_orderbook(ctx):
+    chart_io_bytes = await ld.get_orderbook_graph(kucoin)
+    chart = discord.File(chart_io_bytes, filename="orderbook.png")
+    await ctx.send(file=chart)
+
+@lending.command(name='walls', brief="Display the list of walls (minimum 250k)", aliases=['w'])
+async def lending_walls(ctx, arg='100'):
+    try:
+        min_size = int(arg)
+    except ValueError:
+        min_size = 100
+    msg = await ld.kucoin_lending_get_walls(kucoin, min_size)
+    await ctx.send(msg)
 
 
 @bot.event
