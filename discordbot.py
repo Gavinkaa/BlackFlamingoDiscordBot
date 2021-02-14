@@ -123,7 +123,8 @@ async def kucoin_lending(ctx, subcommand = 'help', arg = ''):
         await ctx.send(file=chart)
     elif subcommand == 'walls':
         msg = await lending.kucoin_lending_get_walls(kucoin)
-        await ctx.send(msg)
+        await ctx.send("```This command will be implemented soon!```")
+        # await ctx.send(msg)
     else:
         usage = '''
 ```
