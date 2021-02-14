@@ -23,10 +23,10 @@ kucoin = ccxt.kucoin({
     'enableRateLimit': True,
 })
 
-bot = commands.Bot(command_prefix='!', help_command=None)
+bot = commands.Bot(command_prefix='!')
 
 
-@bot.command(name='funding', description="Display the actual and the predicted funding from bitmex")
+@bot.command(name='funding', brief="Display the actual and the predicted funding from bitmex")
 async def funding(ctx):
     url = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     r = await requests.get(url)
@@ -48,7 +48,7 @@ async def funding(ctx):
         ".\n📈 The rate is " + str(round(next_funding * 100, 4)) + "% 📈")
 
 
-@bot.command(name='predicted', description="Display the predicted funding from several exchanges")
+@bot.command(name='predicted', brief="Display the predicted funding from several exchanges")
 async def funding(ctx):
     # First we send all the requests
     url_bitmex = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
@@ -101,7 +101,7 @@ async def funding(ctx):
     )
 
 
-@bot.command(name='fiat', description="Display the asked rate")
+@bot.command(name='fiat', brief="Display the asked fiat rate")
 async def fiat(ctx, arg):
     if(len(arg) == 6, arg.isalpha()):
         try:
@@ -115,7 +115,7 @@ async def fiat(ctx, arg):
     else:
         await ctx.send("invalid request, please retry")
 
-@bot.command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
+@bot.command(name='lending', brief="Commands for the KuCoin Crypto Lending USDT section")
 async def kucoin_lending(ctx, subcommand = 'help', arg = ''):
     if subcommand == 'orderbook' or subcommand == 'ob':
         chart_io_bytes = await lending.get_orderbook_graph(kucoin)
