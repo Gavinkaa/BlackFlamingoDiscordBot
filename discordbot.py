@@ -115,11 +115,29 @@ async def fiat(ctx, arg):
     else:
         await ctx.send("invalid request, please retry")
 
-@bot.command(name='orderbook', description="Display a graph of the KuCoin USDT order book")
-async def kucoin_lending_volume(ctx):
-    chart_io_bytes = await lending.get_orderbook_graph(kucoin)
-    chart = discord.File(chart_io_bytes, filename="orderbook.png")
-    await ctx.send(file=chart)
+@bot.command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
+async def kucoin_lending(ctx, subcommand = 'help', arg = ''):
+    if subcommand == 'orderbook' or subcommand == 'ob':
+        chart_io_bytes = await lending.get_orderbook_graph(kucoin)
+        chart = discord.File(chart_io_bytes, filename="orderbook.png")
+        await ctx.send(file=chart)
+    elif subcommand == 'walls':
+        msg = await lending.kucoin_lending_get_walls(kucoin)
+        await ctx.send(msg)
+    else:
+        usage = '''
+```
+# Commands for the KuCoin Crypto Lending USDT section
+
+## Display a graph of the order book
+  !lending orderbook
+  !lending ob
+
+## Display the list of walls (minimum 250k)
+  !lending walls
+```
+'''
+        await ctx.send(usage)
 
 
 @bot.event
