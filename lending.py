@@ -65,5 +65,7 @@ def kucoin_lending_reach_rate(kucoin, rate_to_reach: float):
 
     rates = kucoin_lending_merge_interest_rate(resp['data'])
     amounts = [size for (rate, size) in rates if (float(rate) * 100) <= rate_to_reach]
-    total = reduce(lambda x, y: x+y, amounts)
+    total = 0
+    if len(amounts):
+        total = reduce(lambda x, y: x+y, amounts)
     return f"`⟶ {rate_to_reach}%: {total:9,.0f} USDT needs to be borrowed`"
