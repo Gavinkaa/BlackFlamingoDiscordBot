@@ -47,9 +47,9 @@ async def kucoin_lending_get_walls(kucoin, min_size, length=10):
     if resp['code'] != '200000':
         return f"KuCoin system error code: {resp['code']}"
 
-    raw_walls = kucoin_lending_merge_interest_rate(resp['data'])
-    walls = [f"- {float(rate) * 100:<5.3} :: {size:9,.0f} USDT"
-             for (rate, size) in raw_walls if (size / 1000) >= min_size]
+    rates = kucoin_lending_merge_interest_rate(resp['data'])
+    walls = [f"⟶ {float(rate) * 100:<5.3} :: {size:9,.0f} USDT"
+             for (rate, size) in rates if (size / 1000) >= min_size]
     return '''
 KuCoin Crypto Lending USDT walls (minimum of {:d}k):
 ```
