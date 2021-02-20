@@ -1,6 +1,7 @@
 import io
 import pandas as pd
 import matplotlib.pyplot as plt
+from functools import reduce
 
 plt.style.use('ggplot')
 
@@ -56,3 +57,15 @@ KuCoin Crypto Lending USDT walls (minimum of {:d}k):
 {}
 ```
 '''.format(min_size,"\n".join(walls[:length]))
+
+def kucoin_lending_reach_rate(kucoin, rate_to_reach: float):
+    resp = kucoin.private_get_margin_market({'currency': 'USDT'})
+    if resp['code'] != '200000':
+        return f"KuCoin system error code: {resp['code']}"
+
+    rates = kucoin_lending_merge_interest_rate(resp['data'])
+    amounts = [size for (rate, size) in rates if (float(rate) * 100) <= rate_to_reach]
+    total = 0
+    if len(amounts):
+        total = reduce(lambda x, y: x+y, amounts)
+    return f"`⟶ {rate_to_reach}%: {total:9,.0f} USDT needs to be borrowed`"

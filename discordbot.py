@@ -146,6 +146,14 @@ async def lending_walls(ctx, arg='100'):
     msg = await ld.kucoin_lending_get_walls(kucoin, min_size)
     await ctx.send(msg)
 
+@lending.command(name='reach', brief="How much needs to be borrowed to reach a specific rate", aliases=['r'])
+async def lending_reach(ctx, arg='2.0'):
+    try:
+        rate_to_reach = float(arg)
+    except ValueError:
+        rate_to_reach = 2.0
+    msg = ld.kucoin_lending_reach_rate(kucoin, rate_to_reach)
+    await ctx.send(msg)
 
 @bot.event
 async def on_ready():
