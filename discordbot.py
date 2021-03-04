@@ -24,13 +24,14 @@ kucoin = ccxt.kucoin({
 })
 
 help_command = commands.DefaultHelpCommand(
-    no_category = 'Commands',
+    no_category='Commands',
 )
 
-bot = commands.Bot(command_prefix='!', help_command = help_command)
+bot = commands.Bot(command_prefix='!', help_command=help_command)
 
 
 @bot.group(name='funding', brief="Commands related to the funding", aliases=['f'])
+@commands.cooldown(10, 60, commands.BucketType.default)
 async def funding(ctx):
     if ctx.invoked_subcommand == None:
         await ctx.send_help(funding)
@@ -112,6 +113,7 @@ async def funding_predicted(ctx):
 
 
 @bot.command(name='fiat', brief="Display the asked fiat rate")
+@commands.cooldown(10, 60, commands.BucketType.default)
 async def fiat(ctx, arg='eurusd'):
     if(len(arg) == 6 and arg.isalpha()):
         try:
@@ -125,7 +127,9 @@ async def fiat(ctx, arg='eurusd'):
     else:
         await ctx.send_help(fiat)
 
+
 @bot.group(name='lending', brief="Commands for the KuCoin Crypto Lending USDT section", aliases=['l'])
+@commands.cooldown(10, 60, commands.BucketType.default)
 async def lending(ctx):
     if ctx.invoked_subcommand == None:
         await ctx.send_help(lending)
@@ -137,6 +141,7 @@ async def lending_orderbook(ctx):
     chart = discord.File(chart_io_bytes, filename="orderbook.png")
     await ctx.send(file=chart)
 
+
 @lending.command(name='walls', brief="Display the list of walls (up to 10) (minimum 100k)", aliases=['w'])
 async def lending_walls(ctx, arg='100'):
     try:
@@ -146,6 +151,7 @@ async def lending_walls(ctx, arg='100'):
     msg = await ld.kucoin_lending_get_walls(kucoin, min_size)
     await ctx.send(msg)
 
+
 @lending.command(name='reach', brief="How much needs to be borrowed to reach a specific rate", aliases=['r'])
 async def lending_reach(ctx, arg='2.0'):
     try:
@@ -154,6 +160,17 @@ async def lending_reach(ctx, arg='2.0'):
         rate_to_reach = 2.0
     msg = ld.kucoin_lending_reach_rate(kucoin, rate_to_reach)
     await ctx.send(msg)
+
+
+@funding.error
+@fiat.error
+@lending.error
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
+            error.retry_after)
+        await ctx.reply(msg)
+
 
 @bot.event
 async def on_ready():
