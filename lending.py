@@ -1,37 +1,38 @@
 import io
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
 from functools import reduce
+from math import floor
 
 plt.style.use('ggplot')
 
-# Code par Wumos
-async def get_orderbook_graph(kucoin):
-    # GET ORDERBOOK
-    res = kucoin.private_get_margin_market({'currency': 'USDT'})
-    df = pd.DataFrame(res['data'])
+# Code par @Zané
+async def kucoin_lending_get_orderbook_graph(kucoin):
+    resp = kucoin.private_get_margin_market({'currency': 'USDT'})
 
-    # ORDER BOOK DATAFRAME
-    df['daily_rate'] = df['dailyIntRate'].astype(float)
-    df['daily_rate'] = round(df['daily_rate']*100,1)
-    df['size'] = df['size'].astype(float)
+    df = pd.DataFrame(columns=['rate', 'size'])
+    for i in resp['data']:
+        if int(i['size']) > 50000:
+            df = df.append({"rate":float(i['dailyIntRate']), "size": int(i['size'])}, ignore_index=True)
 
-    # AGREGATION par daily_rate
-    df_gr =df.groupby(['daily_rate']).agg({'size':'sum'})
-    df_gr.reset_index(inplace=True)
+    df_terms_aggr = df.groupby(['rate']).sum()
+    df_terms_aggr.reset_index(level=0, inplace=True)
+    df_terms_aggr['rate'] = round(df_terms_aggr['rate']*100, 3)
+    max_size = int(reduce(lambda x, y: max(x, y), df_terms_aggr['size'].values))
+    number_length = len(str(int(max_size))) - 1
+    max_height = (floor(max_size / (10 ** number_length)) + 1) * (10 ** number_length)
 
-    #plot
-    fig,ax = plt.subplots(1)
-    ax.barh(df_gr.daily_rate, width=df_gr['size'], height=0.1)
-    ax.invert_xaxis()
-    plt.title('Order Book Lending')
-    plt.xlabel('USDT en millions')
-    plt.ylabel('Taux % Journalier')
-
-    # fig.savefig('order-book.png', dpi=1000)
+    plt.figure(figsize=(12,4))
+    axes = plt.gca()
+    axes.set_ylim([0, max_height])
+    ax = sns.barplot(x="rate", y="size", data=df_terms_aggr)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=40, ha="right")
+    plt.title(f'KuCoin Lending Orderbook {datetime.now().strftime("%d/%m/%Y %Hh%M")}')
 
     graph = io.BytesIO()
-    fig.savefig(graph, dpi=400)
+    plt.savefig(graph, dpi=400)
     graph.seek(0)
     return graph
 
