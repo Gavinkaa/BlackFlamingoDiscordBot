@@ -137,7 +137,7 @@ async def lending(ctx):
 
 @lending.command(name='orderbook', brief="Display a graph of the order book", aliases=['ob'])
 async def lending_orderbook(ctx):
-    chart_io_bytes = await ld.get_orderbook_graph(kucoin)
+    chart_io_bytes = await ld.kucoin_lending_get_orderbook_graph(kucoin)
     chart = discord.File(chart_io_bytes, filename="orderbook.png")
     await ctx.send(file=chart)
 
