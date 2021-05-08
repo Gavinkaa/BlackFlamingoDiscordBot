@@ -6,6 +6,7 @@ from dateutil import tz
 import discord
 from discord.ext import commands
 import hmac
+import re
 import json
 import ccxt
 import lending as ld
@@ -143,12 +144,18 @@ async def lending_orderbook(ctx):
 
 
 @lending.command(name='walls', brief="Display the list of walls (up to 10) (minimum 100k)", aliases=['w'])
-async def lending_walls(ctx, arg='100'):
+async def lending_walls(ctx, contract_term='all|t7|t14|t28', min_size='100'):
+    matched_contract_term = re.search('^t(7|14|28)$', contract_term)
+    if matched_contract_term:
+        contract_term = matched_contract_term.group()
+    else:
+        contract_term = 'all'
+
     try:
-        min_size = int(arg)
+        min_size = int(min_size)
     except ValueError:
         min_size = 100
-    msg = await ld.kucoin_lending_get_walls(kucoin, min_size)
+    msg = await ld.kucoin_lending_get_walls(kucoin, min_size, contract_term)
     await ctx.send(msg)
 
 
