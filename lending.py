@@ -36,7 +36,7 @@ async def kucoin_lending_get_orderbook_graph(kucoin):
     graph.seek(0)
     return graph
 
-def kucoin_lending_merge_interest_rate(orderbook):
+def _kucoin_lending_merge_interest_rate(orderbook):
     merged = {}
     for entry in orderbook:
         rate = entry['dailyIntRate']
@@ -49,7 +49,7 @@ async def kucoin_lending_get_walls(kucoin, min_size, length=10):
     if resp['code'] != '200000':
         return f"KuCoin system error code: {resp['code']}"
 
-    rates = kucoin_lending_merge_interest_rate(resp['data'])
+    rates = _kucoin_lending_merge_interest_rate(resp['data'])
     walls = [f"⟶ {float(rate) * 100:<5.3} :: {size:9,.0f} USDT"
              for (rate, size) in rates if (size / 1000) >= min_size]
     return '''
@@ -59,12 +59,12 @@ KuCoin Crypto Lending USDT walls (minimum of {:d}k):
 ```
 '''.format(min_size,"\n".join(walls[:length]))
 
-def kucoin_lending_reach_rate(kucoin, rate_to_reach: float):
+async def kucoin_lending_reach_rate(kucoin, rate_to_reach: float):
     resp = kucoin.private_get_margin_market({'currency': 'USDT'})
     if resp['code'] != '200000':
         return f"KuCoin system error code: {resp['code']}"
 
-    rates = kucoin_lending_merge_interest_rate(resp['data'])
+    rates = _kucoin_lending_merge_interest_rate(resp['data'])
     amounts = [size for (rate, size) in rates if (float(rate) * 100) <= rate_to_reach]
     total = 0
     if len(amounts):

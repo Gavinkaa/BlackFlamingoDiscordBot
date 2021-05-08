@@ -158,7 +158,7 @@ async def lending_reach(ctx, arg='2.0'):
         rate_to_reach = float(arg)
     except ValueError:
         rate_to_reach = 2.0
-    msg = ld.kucoin_lending_reach_rate(kucoin, rate_to_reach)
+    msg = await ld.kucoin_lending_reach_rate(kucoin, rate_to_reach)
     await ctx.send(msg)
 
 
