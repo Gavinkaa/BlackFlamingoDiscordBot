@@ -5,6 +5,13 @@ import seaborn as sns
 from datetime import datetime
 from functools import reduce
 from math import floor
+from tabulate import tabulate
+from decimal import Decimal
+
+TERM_TO_STR = {'all': 'all',
+               't7': '7 days',
+               't14': '14 days',
+               't28': '28 days'}
 
 plt.style.use('ggplot')
 
@@ -36,36 +43,53 @@ async def kucoin_lending_get_orderbook_graph(kucoin):
     graph.seek(0)
     return graph
 
-def kucoin_lending_merge_interest_rate(orderbook):
+def _kucoin_lending_fetch_all_contract_term(kucoin):
+    # Data format: {'dailyIntRate': '0.00139', 'term': 7, 'size': '11740'}
+    resp = kucoin.private_get_margin_market({'currency': 'USDT'})
+    if resp['code'] != '200000':
+        return f"Error while fetching lending market data: {resp['code']}"
+
+    orderbook = resp['data']
     merged = {}
     for entry in orderbook:
         rate = entry['dailyIntRate']
         merged[rate] = merged.get(rate, 0) + int(entry['size'])
 
-    return sorted(merged.items())
+    rates = [{'dailyIntRate': Decimal(rate), 'size': size} for (rate, size) in merged.items()]
+    return sorted(rates, key=lambda entry: entry['dailyIntRate'])
 
-async def kucoin_lending_get_walls(kucoin, min_size, length=10):
-    resp = kucoin.private_get_margin_market({'currency': 'USDT'})
+def _kucoin_lending_fetch_by_contract_term(kucoin, contract_term: int):
+    resp = kucoin.private_get_margin_market({'currency': 'USDT', 'term': contract_term})
     if resp['code'] != '200000':
-        return f"KuCoin system error code: {resp['code']}"
+        return f"Error while fetching lending market by contract term: {resp['code']}"
 
-    rates = kucoin_lending_merge_interest_rate(resp['data'])
-    walls = [f"⟶ {float(rate) * 100:<5.3} :: {size:9,.0f} USDT"
-             for (rate, size) in rates if (size / 1000) >= min_size]
+    return [{'dailyIntRate': Decimal(entry['dailyIntRate']), 'size': int(entry['size'])}
+             for entry in resp['data']]
+
+def _kucoin_lending_format_rates(rates: list, min_size: int):
+    return [(f"{entry['dailyIntRate'] * 100:<5.3}",
+             f"{entry['size']:9,.0f} USDT")
+            for entry in rates if (entry['size'] / 1000) >= min_size]
+
+async def kucoin_lending_get_walls(kucoin, min_size: int, contract_term: str, length=10):
+    # Rates format: [{'dailyIntRate': Decimal('0.00139'), 'size': 11740}, ...]
+    if contract_term == 'all':
+        fetched_rates = _kucoin_lending_fetch_all_contract_term(kucoin)
+    else:
+        fetched_rates = _kucoin_lending_fetch_by_contract_term(kucoin, contract_term[1:])
+
+    formatted_rates = _kucoin_lending_format_rates(fetched_rates, min_size)
+    table = tabulate(formatted_rates[:length], ("Rate", "Amount in USDT"), tablefmt='presto', stralign='right')
     return '''
-KuCoin Crypto Lending USDT walls (minimum of {:d}k):
+KuCoin Crypto Lending USDT walls for **{}** contract term (minimum of {:d}k):
 ```
 {}
 ```
-'''.format(min_size,"\n".join(walls[:length]))
+'''.format(TERM_TO_STR[contract_term], min_size, table)
 
-def kucoin_lending_reach_rate(kucoin, rate_to_reach: float):
-    resp = kucoin.private_get_margin_market({'currency': 'USDT'})
-    if resp['code'] != '200000':
-        return f"KuCoin system error code: {resp['code']}"
-
-    rates = kucoin_lending_merge_interest_rate(resp['data'])
-    amounts = [size for (rate, size) in rates if (float(rate) * 100) <= rate_to_reach]
+async def kucoin_lending_reach_rate(kucoin, rate_to_reach: float):
+    rates = _kucoin_lending_fetch_all_contract_term(kucoin)
+    amounts = [entry['size'] for entry in rates if (entry['dailyIntRate'] * 100) <= rate_to_reach]
     total = 0
     if len(amounts):
         total = reduce(lambda x, y: x+y, amounts)
