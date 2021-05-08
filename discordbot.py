@@ -10,7 +10,6 @@ import re
 import json
 import ccxt
 import lending as ld
-import random
 
 
 with open("config.json") as config_file:
@@ -178,38 +177,6 @@ async def on_command_error(ctx, error):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
             error.retry_after)
         await ctx.reply(msg)
-
-
-@bot.command(name='town', brief="Use !town YOUR_TOWN to register where you live!")
-async def town(ctx,*,arg):
-    author = ctx.author.name
-    with open("db.json", "r")as db:
-        users = json.load(db)
-        users.update({author: arg})
-    with open("db.json", "w")as db:
-        json.dump(users,db)
-
-@bot.command(name="where", brief="Use !where DISCORD_PSEUDO without the #")
-async def get_town(ctx, *, arg):
-    with open("db.json", "r") as db:
-        users = json.load(db)
-        if arg in users:
-            sentence_draw = _random_commenting_sentence()
-            await ctx.send("{} habite à {}!\n {}".format(arg, users[arg], sentence_draw))
-        else:
-            await ctx.send("{} n'a pas donné sa liquidation! heu, sa ville!".format(arg))
-
-
-random_sentences = ["Ville des plus gros holders d'EOS", "La ville des adorateurs de $TONE", "aka lamboland", "Lieu préféré de THISMA le boss", "Lieu de pèlerinage TBF",
-                    "Bapor le porc est passé par ici jadis", "L'endroit de liquidation préféré de ThOny", "Village préféré des francais!"]
-
-def _random_commenting_sentence():
-    from random import choice
-    sentence_drawn = choice(random_sentences)
-    return sentence_drawn
-
-
-
 
 
 @bot.event
