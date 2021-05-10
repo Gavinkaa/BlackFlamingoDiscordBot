@@ -177,8 +177,12 @@ async def on_command_error(ctx, error):
             error.retry_after)
         await ctx.reply(msg)
 
+@bot.group(name="location", brief="Commands related to the location")
+async def location(ctx):
+    if ctx.invoked_subcommand == None:
+        await ctx.send_help(location)
 
-@bot.command(name='town', brief="Use !town YOUR_TOWN to register where you live!")
+@location.command(name='town', brief="Use !town YOUR_TOWN to register where you live!")
 async def town(ctx,*,arg):
     valid_town = await _town_name_valid(ctx,arg)
     if valid_town:
@@ -196,7 +200,7 @@ async def town(ctx,*,arg):
                 json.dump({author_id:arg.capitalize}, db)
 
 
-@bot.command(name="whoisat", brief="Enter a town name to see who is nearby!")
+@location.command(name="whoisat", brief="Enter a town name to see who is nearby!")
 async def whoisat(ctx, *, arg):
     valid_town = await _town_name_valid(ctx, arg)
     if valid_town:
@@ -229,7 +233,7 @@ async def _town_name_valid(ctx,town:str)->bool:
         return True
 
 
-@bot.command(name="where", brief="Use !where @NAME without the #")
+@location.command(name="where", brief="Use !where @NAME without the #")
 async def where(ctx, *, arg):
     if "<@" in arg and "&" not in arg:
         called_id = arg.strip("<@!>")
