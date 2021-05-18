@@ -2,3 +2,4 @@ config.json
 check_run
 __pycache__/
 .vscode/
+db.json
