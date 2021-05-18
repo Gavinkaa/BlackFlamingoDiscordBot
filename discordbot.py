@@ -168,23 +168,15 @@ async def lending_reach(ctx, arg='2.0'):
     await ctx.send(msg)
 
 
-@funding.error
-@fiat.error
-@lending.error
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandOnCooldown):
-        msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
-            error.retry_after)
-        await ctx.reply(msg)
-
-@bot.group(name="location", brief="Commands related to the location")
+@bot.group(name="location", brief="Commands related to the location", aliases=['loc'])
 async def location(ctx):
     if ctx.invoked_subcommand == None:
         await ctx.send_help(location)
 
+
 @location.command(name='town', brief="Use !town YOUR_TOWN to register where you live!")
-async def town(ctx,*,arg):
-    valid_town = await _town_name_valid(ctx,arg)
+async def town(ctx, *, arg=""):
+    valid_town = await _town_name_valid(ctx, arg)
     if valid_town:
         author_id = str(ctx.author.id)
         try:
@@ -195,13 +187,16 @@ async def town(ctx,*,arg):
             with open("db.json", "w")as db:
                 json.dump(users, db)
 
+            await ctx.send("{} a été assigné à ton nom !".format(arg.capitalize()))
+
         except FileNotFoundError:
             with open("db.json", "w") as db:
-                json.dump({author_id:arg.capitalize}, db)
+                json.dump({author_id: arg.capitalize}, db)
+            await ctx.send("Erreur")
 
 
 @location.command(name="whoisat", brief="Enter a town name to see who is nearby!")
-async def whoisat(ctx, *, arg):
+async def whoisat(ctx, *, arg="Paris"):
     valid_town = await _town_name_valid(ctx, arg)
     if valid_town:
         try:
@@ -213,7 +208,7 @@ async def whoisat(ctx, *, arg):
                     if town == db_json[name_id]:
                         user = await bot.fetch_user(name_id)
                         names_id.append(user.name)
-                if len(names_id)==0:
+                if len(names_id) == 0:
                     await ctx.send(f"Personne n'a signalé habiter à {town}")
                 else:
                     await ctx.send("Les personnes habitant à {} sont les suivantes : \n {}".format(town, "{}\n".join(names_id)))
@@ -221,9 +216,11 @@ async def whoisat(ctx, *, arg):
         except FileNotFoundError:
             with open("db.json", "w") as db:
                 json.dump({}, db)
+            await ctx.send("Erreur")
 
-async def _town_name_valid(ctx,town:str)->bool:
-    if len(town)<1:
+
+async def _town_name_valid(ctx, town: str) -> bool:
+    if len(town) < 1:
         await ctx.send("Town name should be more than 1 character long")
         return False
     elif re.search("[0-9]", town):
@@ -234,7 +231,7 @@ async def _town_name_valid(ctx,town:str)->bool:
 
 
 @location.command(name="where", brief="Use !where @NAME without the #")
-async def where(ctx, *, arg):
+async def where(ctx, *, arg="THISMA"):
     if "<@" in arg and "&" not in arg:
         called_id = arg.strip("<@!>")
         try:
@@ -249,6 +246,7 @@ async def where(ctx, *, arg):
         except FileNotFoundError:
             with open("db.json", 'w') as db:
                 json.dump({}, db)
+            await ctx.send("Erreur")
 
     else:
         await ctx.send("Merci de tagger le nom de la personne, exemple : !where @THISMA")
@@ -257,13 +255,22 @@ async def where(ctx, *, arg):
 random_sentences = ["Ville des plus gros holders d'EOS", "La ville des adorateurs de $TONE", "aka lamboland", "Lieu préféré de THISMA le boss", "Lieu de pèlerinage TBF",
                     "Bapor le porc est passé par ici jadis", "L'endroit de liquidation préféré de ThOny", "Village préféré des francais!"]
 
+
 def _random_commenting_sentence():
     from random import choice
     sentence_drawn = choice(random_sentences)
     return sentence_drawn
 
 
-
+@funding.error
+@fiat.error
+@lending.error
+@location.error
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
+            error.retry_after)
+        await ctx.reply(msg)
 
 
 @bot.event
