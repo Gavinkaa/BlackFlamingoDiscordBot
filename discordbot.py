@@ -5,11 +5,10 @@ import dateutil.parser
 from dateutil import tz
 import discord
 from discord.ext import commands
-import hmac
-import re
 import json
 import ccxt
 import lending as ld
+import re
 
 
 with open("config.json") as config_file:
@@ -177,6 +176,94 @@ async def on_command_error(ctx, error):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
             error.retry_after)
         await ctx.reply(msg)
+
+@bot.group(name="location", brief="Commands related to the location")
+async def location(ctx):
+    if ctx.invoked_subcommand == None:
+        await ctx.send_help(location)
+
+@location.command(name='town', brief="Use !town YOUR_TOWN to register where you live!")
+async def town(ctx,*,arg):
+    valid_town = await _town_name_valid(ctx,arg)
+    if valid_town:
+        author_id = str(ctx.author.id)
+        try:
+            with open("db.json", "r")as db:
+                users = json.load(db)
+                users.update({author_id: arg.capitalize()})
+
+            with open("db.json", "w")as db:
+                json.dump(users, db)
+
+        except FileNotFoundError:
+            with open("db.json", "w") as db:
+                json.dump({author_id:arg.capitalize}, db)
+
+
+@location.command(name="whoisat", brief="Enter a town name to see who is nearby!")
+async def whoisat(ctx, *, arg):
+    valid_town = await _town_name_valid(ctx, arg)
+    if valid_town:
+        try:
+            names_id = []
+            with open("db.json", "r") as db:
+                town = arg.capitalize()
+                db_json = json.load(db)
+                for name_id in db_json.keys():
+                    if town == db_json[name_id]:
+                        user = await bot.fetch_user(name_id)
+                        names_id.append(user.name)
+                if len(names_id)==0:
+                    await ctx.send(f"Personne n'a signalé habiter à {town}")
+                else:
+                    await ctx.send("Les personnes habitant à {} sont les suivantes : \n {}".format(town, "{}\n".join(names_id)))
+
+        except FileNotFoundError:
+            with open("db.json", "w") as db:
+                json.dump({}, db)
+
+async def _town_name_valid(ctx,town:str)->bool:
+    if len(town)<1:
+        await ctx.send("Town name should be more than 1 character long")
+        return False
+    elif re.search("[0-9]", town):
+        await ctx.send("Please enter a valid town name!")
+        return False
+    else:
+        return True
+
+
+@location.command(name="where", brief="Use !where @NAME without the #")
+async def where(ctx, *, arg):
+    if "<@" in arg and "&" not in arg:
+        called_id = arg.strip("<@!>")
+        try:
+            with open("db.json", "r") as db:
+                users = json.load(db)
+                if called_id in users:
+                    sentence_draw = _random_commenting_sentence()
+                    await ctx.send("{} habite à {}!\n {}".format(arg, users[called_id], sentence_draw))
+                else:
+                    await ctx.send("{} n'a pas donné sa liquidation! heu, sa ville!".format(arg))
+
+        except FileNotFoundError:
+            with open("db.json", 'w') as db:
+                json.dump({}, db)
+
+    else:
+        await ctx.send("Merci de tagger le nom de la personne, exemple : !where @THISMA")
+
+
+random_sentences = ["Ville des plus gros holders d'EOS", "La ville des adorateurs de $TONE", "aka lamboland", "Lieu préféré de THISMA le boss", "Lieu de pèlerinage TBF",
+                    "Bapor le porc est passé par ici jadis", "L'endroit de liquidation préféré de ThOny", "Village préféré des francais!"]
+
+def _random_commenting_sentence():
+    from random import choice
+    sentence_drawn = choice(random_sentences)
+    return sentence_drawn
+
+
+
 
 
 @bot.event
