@@ -9,7 +9,7 @@ import json
 import ccxt
 import lending as ld
 import re
-
+import language_selection as ls
 
 with open("config.json") as config_file:
     config = json.load(config_file)
@@ -27,7 +27,19 @@ help_command = commands.DefaultHelpCommand(
     no_category='Commands',
 )
 
-bot = commands.Bot(command_prefix='!', help_command=help_command)
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix='!',
+                   help_command=help_command, intents=intents)
+
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    await ls.add_language_from_reaction(bot, payload)
+
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    await ls.remove_language_from_reaction(bot, payload)
 
 
 @bot.group(name='funding', brief="Commands related to the funding", aliases=['f'])
