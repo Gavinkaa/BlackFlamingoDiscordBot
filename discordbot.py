@@ -51,12 +51,6 @@ async def on_raw_reaction_remove(payload):
     await ls.remove_language_from_reaction(bot, payload)
 
 
-@slash.slash(name="test")
-async def test(ctx: SlashContext):
-    embed = Embed(title="Embed6 Test")
-    await ctx.send(embed=embed)
-
-
 @bot.group(name='funding', brief="Commands related to the funding", aliases=['f'])
 @commands.cooldown(10, 60, commands.BucketType.default)
 async def funding(ctx):
