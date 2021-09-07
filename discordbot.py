@@ -13,6 +13,7 @@ import ccxt
 import lending as ld
 import re
 import language_selection as ls
+from decorator import *
 
 with open("config.json") as config_file:
     config = json.load(config_file)
@@ -50,13 +51,12 @@ async def on_raw_reaction_remove(payload):
     await ls.remove_language_from_reaction(bot, payload)
 
 
-@slash.slash(name="test66")
+@slash.slash(name="test")
 async def test(ctx: SlashContext):
     embed = Embed(title="Embed6 Test")
     await ctx.send(embed=embed)
 
 
-# TODO ADD COOLDOWN FOR FUNDING SLASH
 @bot.group(name='funding', brief="Commands related to the funding", aliases=['f'])
 @commands.cooldown(10, 60, commands.BucketType.default)
 async def funding(ctx):
@@ -88,6 +88,7 @@ async def funding_bitmex(ctx):
 @slash.subcommand(base="funding",
                   name="bitmex",
                   description="Display the actual and the predicted funding from bitmex")
+@cooldown(60, 10)  # have to be on the first layer of decorator
 async def _funding_bitmex(ctx):
     await funding_bitmex(ctx)
 
@@ -153,6 +154,7 @@ async def funding_predicted(ctx):
 @slash.subcommand(base="funding",
                   name="predicted",
                   description="Display the predicted funding from several exchanges")
+@cooldown(60, 10)  # have to be on the first layer of decorator
 async def _funding_predicted(ctx):
     await funding_predicted(ctx)
 
@@ -179,6 +181,7 @@ async def lending_orderbook(ctx):
 @slash.subcommand(base="lending",
                   name="orderbook",
                   description="Display a graph of the order book")
+@cooldown(60, 10)  # have to be on the first layer of decorator
 async def _lending_orderbook(ctx):
     await lending_orderbook(ctx)
 
@@ -221,6 +224,7 @@ async def lending_walls(ctx, contract_term='all|t7|t14|t28', min_size='100'):
                           required=False
                       )
                   ])
+@cooldown(60, 10)  # have to be on the first layer of decorator
 async def _lending_walls(ctx, contract_term='all|t7|t14|t28', min_size=100):
     await lending_walls(ctx, contract_term, str(min_size))
 
@@ -251,6 +255,7 @@ async def lending_reach(ctx, arg='2.0'):
                           required=False
                       )
                   ])
+@cooldown(60, 10)  # have to be on the first layer of decorator
 async def _lending_reach(ctx, rate='2.0'):
     await lending_reach(ctx, rate)
 
@@ -420,6 +425,14 @@ def _random_commenting_sentence():
 @location.error
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
+        msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
+            error.retry_after)
+        await ctx.reply(msg)
+
+
+@bot.event
+async def on_slash_command_error(ctx, error):
+    if isinstance(error, OnCooldownError):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
             error.retry_after)
         await ctx.reply(msg)
