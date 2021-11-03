@@ -3,3 +3,4 @@ check_run
 __pycache__/
 .vscode/
 users_location.json
+.idea/
