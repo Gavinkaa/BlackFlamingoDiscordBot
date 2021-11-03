@@ -8,11 +8,14 @@ import discord
 import requests_async as requests
 from dateutil import tz
 from discord.ext import commands
-from discord_slash import SlashCommand
+from discord import Client, Intents, Embed
+from discord_slash import SlashCommand, SlashContext
 from discord_slash.utils.manage_commands import create_option
-
-import language_selection as ls
+import json
+import ccxt
 import lending as ld
+import re
+import language_selection as ls
 from decorator import *
 
 with open("config.json") as config_file:
@@ -325,6 +328,7 @@ async def who_is_at(ctx, arg="Paris"):
                     await ctx.send(
                         "Les personnes habitant à {} sont les suivantes : \n{}".format(town, "\n".join(names_id)))
 
+
         except FileNotFoundError:
             with open("users_location.json", "w") as db:
                 json.dump({}, db)
@@ -405,10 +409,12 @@ async def _old_where(ctx, arg=""):
     await try_slash(ctx)
 
 
+
 random_sentences = ["Ville des plus gros holders d'EOS", "La ville des adorateurs de $TONE", "aka lamboland",
                     "Lieu préféré de THISMA le boss", "Lieu de pèlerinage TBF",
                     "Bapor le porc est passé par ici jadis", "L'endroit de liquidation préféré de ThOny",
                     "Village préféré des francais!"]
+
 
 
 def _random_commenting_sentence():
