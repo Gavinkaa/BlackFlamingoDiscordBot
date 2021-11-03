@@ -1,18 +1,18 @@
-import time
-import requests_async as requests
-from datetime import datetime, timezone, timedelta
-import dateutil.parser
-from dateutil import tz
-import discord
-from discord.ext import commands
-from discord import Client, Intents, Embed
-from discord_slash import SlashCommand, SlashContext
-from discord_slash.utils.manage_commands import create_option
 import json
-import ccxt
-import lending as ld
 import re
+from datetime import timedelta
+
+import ccxt
+import dateutil.parser
+import discord
+import requests_async as requests
+from dateutil import tz
+from discord.ext import commands
+from discord_slash import SlashCommand
+from discord_slash.utils.manage_commands import create_option
+
 import language_selection as ls
+import lending as ld
 from decorator import *
 
 with open("config.json") as config_file:
@@ -54,18 +54,18 @@ async def on_raw_reaction_remove(payload):
 @bot.group(name='funding', brief="Commands related to the funding", aliases=['f'])
 @commands.cooldown(10, 60, commands.BucketType.default)
 async def funding(ctx):
-    if ctx.invoked_subcommand == None:
+    if ctx.invoked_subcommand is None:
         await ctx.send_help(funding)
 
 
 async def funding_bitmex(ctx):
     url = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     r = await requests.get(url)
-    json = r.json()[0]
-    actual_funding = json['fundingRate']
-    next_funding = json['indicativeFundingRate']
+    request_json = r.json()[0]
+    actual_funding = request_json['fundingRate']
+    next_funding = request_json['indicativeFundingRate']
 
-    funding_timestamp = dateutil.parser.parse(json['fundingTimestamp'])
+    funding_timestamp = dateutil.parser.parse(request_json['fundingTimestamp'])
     funding_timestamp = funding_timestamp.astimezone(
         tz=tz.gettz("Europe/Paris"))
 
@@ -73,7 +73,7 @@ async def funding_bitmex(ctx):
     await ctx.send(
         "The next funding event is at " +
         funding_timestamp.strftime("%I:%M:%S %p (%Z)") +
-        ".\n📈 The rate is " + str(round(actual_funding * 100, 4)) + "% 📈\n\n"
+        ".\n📈 The rate is " + str(round(actual_funding * 100, 4)) + "% 📈\n\n" +
         "The predicted funding event is at " +
         next_funding_timestamp.strftime("%I:%M:%S %p (%Z)") +
         ".\n📈 The rate is " + str(round(next_funding * 100, 4)) + "% 📈")
@@ -123,7 +123,7 @@ async def funding_predicted(ctx):
 
     # Ftx - processing the response
     r_ftx = await r_ftx
-    predicted_ftx = r_ftx.json()['result']['nextFundingRate']*8
+    predicted_ftx = r_ftx.json()['result']['nextFundingRate'] * 8
     # Ftx - end
 
     # Okex - processing the response
@@ -132,7 +132,7 @@ async def funding_predicted(ctx):
     # Okex - end
 
     average = (predicted_bybit + predicted_bitmex +
-               predicted_ftx + predicted_okex)/4
+               predicted_ftx + predicted_okex) / 4
 
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
@@ -162,7 +162,7 @@ async def _old_funding_predicted(ctx):
 @bot.group(name='lending', brief="Commands for the KuCoin Crypto Lending USDT section", aliases=['l'])
 @commands.cooldown(10, 60, commands.BucketType.default)
 async def lending(ctx):
-    if ctx.invoked_subcommand == None:
+    if ctx.invoked_subcommand is None:
         await ctx.send_help(lending)
 
 
@@ -262,7 +262,7 @@ async def _old_lending_reach(ctx, arg='2.0'):
 
 @bot.group(name="location", brief="Commands related to the location", aliases=['loc'])
 async def location(ctx):
-    if ctx.invoked_subcommand == None:
+    if ctx.invoked_subcommand is None:
         await ctx.send_help(location)
 
 
@@ -271,11 +271,11 @@ async def choose_my_town(ctx, arg=""):
     if valid_town:
         author_id = str(ctx.author.id)
         try:
-            with open("users_location.json", "r")as db:
+            with open("users_location.json", "r") as db:
                 users = json.load(db)
                 users.update({author_id: arg.capitalize()})
 
-            with open("users_location.json", "w")as db:
+            with open("users_location.json", "w") as db:
                 json.dump(users, db)
 
             await ctx.send("{} a été assigné à ton nom !".format(arg.capitalize()))
@@ -322,7 +322,8 @@ async def who_is_at(ctx, arg="Paris"):
                 if len(names_id) == 0:
                     await ctx.send(f"Personne n'a signalé habiter à {town}")
                 else:
-                    await ctx.send("Les personnes habitant à {} sont les suivantes : \n{}".format(town, "\n".join(names_id)))
+                    await ctx.send(
+                        "Les personnes habitant à {} sont les suivantes : \n{}".format(town, "\n".join(names_id)))
 
         except FileNotFoundError:
             with open("users_location.json", "w") as db:
@@ -404,8 +405,10 @@ async def _old_where(ctx, arg=""):
     await try_slash(ctx)
 
 
-random_sentences = ["Ville des plus gros holders d'EOS", "La ville des adorateurs de $TONE", "aka lamboland", "Lieu préféré de THISMA le boss", "Lieu de pèlerinage TBF",
-                    "Bapor le porc est passé par ici jadis", "L'endroit de liquidation préféré de ThOny", "Village préféré des francais!"]
+random_sentences = ["Ville des plus gros holders d'EOS", "La ville des adorateurs de $TONE", "aka lamboland",
+                    "Lieu préféré de THISMA le boss", "Lieu de pèlerinage TBF",
+                    "Bapor le porc est passé par ici jadis", "L'endroit de liquidation préféré de ThOny",
+                    "Village préféré des francais!"]
 
 
 def _random_commenting_sentence():
@@ -438,5 +441,6 @@ async def on_ready():
     print(bot.user.name)
     print(bot.user.id)
     print('------\n')
+
 
 bot.run(TOKEN)
