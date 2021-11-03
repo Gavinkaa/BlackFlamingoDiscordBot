@@ -1,5 +1,5 @@
 import json
-import discord
+
 from discord.utils import get
 
 with open("config.json") as config_file:
@@ -61,7 +61,6 @@ async def add_language_from_reaction(bot, payload):
             await member.add_roles(en_role)
 
 
-
 async def remove_language_from_reaction(bot, payload):
     if payload.guild_id == black_flamingo_discord_id and \
             payload.channel_id == language_selection_channel_id and \
@@ -83,4 +82,3 @@ async def remove_language_from_reaction(bot, payload):
             en_role = get_english_role(bot)
 
             await member.remove_roles(en_role)
-
