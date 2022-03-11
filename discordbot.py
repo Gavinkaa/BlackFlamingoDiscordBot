@@ -201,8 +201,8 @@ async def funding_predicted(ctx):
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + bitmex_percentage + "\n" +
         "--> Bybit      (BTCUSD): " + bybit_percentage + "\n" +
-        "--> Okex (BTC-USD-SWAP): " + ftx_percentage + "\n" +
-        "--> FTX  (BTC-PERP)(*8): " + okex_percentage + "\n" +
+        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n" +
+        "--> FTX  (BTC-PERP)(*8): " + ftx_percentage + "\n" +
         "\n" +
         "==> Average: " + average + "% <==```"
     )
