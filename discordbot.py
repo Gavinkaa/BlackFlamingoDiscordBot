@@ -67,7 +67,7 @@ async def funding_bitmex(ctx):
         actual_funding = request_json[0]['fundingRate']
         next_funding = request_json[0]['indicativeFundingRate']
 
-        funding_timestamp = dateutil.parser.parse(request_json['fundingTimestamp'])
+        funding_timestamp = dateutil.parser.parse(request_json[0]['fundingTimestamp'])
         funding_timestamp = funding_timestamp.astimezone(
             tz=tz.gettz("Europe/Paris"))
 
