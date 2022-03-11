@@ -62,10 +62,10 @@ async def funding(ctx):
 async def funding_bitmex(ctx):
     url = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     try:
-        r = urllib.request.urlopen(url, timeout=5)
+        r = urllib.request.urlopen(url, timeout=3)
         request_json = json.loads(r.read().decode())
-        actual_funding = request_json['fundingRate']
-        next_funding = request_json['indicativeFundingRate']
+        actual_funding = request_json[0]['fundingRate']
+        next_funding = request_json[0]['indicativeFundingRate']
 
         funding_timestamp = dateutil.parser.parse(request_json['fundingTimestamp'])
         funding_timestamp = funding_timestamp.astimezone(
