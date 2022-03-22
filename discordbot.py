@@ -125,8 +125,6 @@ async def funding_predicted(ctx):
                 'User-Agent': 'Mozilla/5.0'})
             request = urllib.request.urlopen(pre_request, timeout=3)
             request_json = json.loads(request.read().decode())
-            if exchange_name == 'okex' or exchange_name == 'ftx':
-                print(exchange_name + ": " + str(request_json))
             return exchange_name, request_json
         except Exception as e:
             print(exchange_name + ": " + str(e))
