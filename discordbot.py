@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from datetime import timedelta
@@ -10,6 +11,8 @@ from dateutil import tz
 from discord.ext import commands
 from discord_slash import SlashCommand
 from discord_slash.utils.manage_commands import create_option
+from aiohttp import ClientSession
+from pyquery import PyQuery
 
 import language_selection as ls
 import lending as ld
@@ -101,8 +104,8 @@ async def funding_predicted(ctx):
     url_bybit = "https://api.bybit.com/v2/public/tickers"
     r_bybit = requests.get(url_bybit)
 
-    url_ftx = "https://ftx.com/api/futures/BTC-PERP/stats"
-    r_ftx = requests.get(url_ftx)
+    # url_ftx = "https://ftx.com/api/futures/BTC-PERP/stats"
+    # r_ftx = requests.get(url_ftx)
 
     url_okex = "https://www.okex.com/api/swap/v3/instruments/BTC-USD-SWAP/funding_time"
     r_okex = requests.get(url_okex)
@@ -122,8 +125,8 @@ async def funding_predicted(ctx):
     # Bybit - end
 
     # Ftx - processing the response
-    r_ftx = await r_ftx
-    predicted_ftx = r_ftx.json()['result']['nextFundingRate'] * 8
+    # r_ftx = await r_ftx
+    # predicted_ftx = r_ftx.json()['result']['nextFundingRate'] * 8
     # Ftx - end
 
     # Okex - processing the response
@@ -131,15 +134,13 @@ async def funding_predicted(ctx):
     predicted_okex = float(r_okex.json()['estimated_rate'])
     # Okex - end
 
-    average = (predicted_bybit + predicted_bitmex +
-               predicted_ftx + predicted_okex) / 4
+    average = (predicted_bybit + predicted_bitmex + predicted_okex) / 4
 
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + "{:7.4f}".format(predicted_bitmex * 100) + "%\n" +
         "--> Bybit      (BTCUSD): " + "{:7.4f}".format(predicted_bybit * 100) + "%\n" +
         "--> Okex (BTC-USD-SWAP): " + "{:7.4f}".format(predicted_okex * 100) + "%\n" +
-        "--> FTX  (BTC-PERP)(*8): " + "{:7.4f}".format(predicted_ftx * 100) + "%\n" +
         "\n" +
         "==> Average: " + "{:.4f}".format(average * 100, 4) + "% <==```"
     )
@@ -416,6 +417,27 @@ def _random_commenting_sentence():
     from random import choice
     sentence_drawn = choice(random_sentences)
     return sentence_drawn
+
+
+@slash.command(name="calendar")
+async def _calendar(ctx):
+
+
+async def calendar(ctx):
+    async with ClientSession() as session:
+        async with session.post("https://www.investing.com/economic-calendar/Service/getCalendarFilteredData",
+                                data={"country[]": [72, 5],
+                                      "importance[]": 3,
+                                      "timeZone": 8,
+                                      "timeFilter": "timeRemain",
+                                      "currentTab": "thisWeek",
+                                      "limit_from": 0}) as response:
+            data = await response.json()
+            print(data)
+            pq = PyQuery(data['data'])
+            
+
+    r_calendar = requests.get("https://api.coingecko.com/api/v3/coins/eos")
 
 
 @funding.error
