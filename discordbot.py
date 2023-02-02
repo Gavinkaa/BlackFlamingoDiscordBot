@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from datetime import timedelta
+from datetime import timedelta, date
 
 import ccxt
 import dateutil.parser
@@ -16,6 +16,7 @@ from pyquery import PyQuery
 
 import language_selection as ls
 import lending as ld
+from eco_calendar import fetch_events, Event
 from decorator import *
 
 with open("config.json") as config_file:
@@ -419,23 +420,30 @@ def _random_commenting_sentence():
     return sentence_drawn
 
 
-@slash.command(name="calendar")
-async def _calendar(ctx):
+
+async def _calendar(ctx, nb_days=7):
+    if nb_days > 30:
+        nb_days = 30
+    # Get events from investing.com, returns list of days {timestamp:,events:}
+    events = Event.fetch_events(date.today(), date.today() + timedelta(days=nb_days))
 
 
+    embed = discord.Embed(title='Calendrier économique',color=discord.Color.blue())
+    #TODO finish embed, only display possible is in bot commands
+    ctx.send(embed=embed)
+
+@slash.command(name="calendar", description="Output the official economic calendar for US and EUROPE",
+               options=[
+                   create_option(
+                       name='End date',
+                       description="Number of days ahead you want to fetch, default 7, max 30",
+                       option_type=4,  #TODO determine correct option type
+                       required=False
+                   )
+               ])
 async def calendar(ctx):
-    async with ClientSession() as session:
-        async with session.post("https://www.investing.com/economic-calendar/Service/getCalendarFilteredData",
-                                data={"country[]": [72, 5],
-                                      "importance[]": 3,
-                                      "timeZone": 8,
-                                      "timeFilter": "timeRemain",
-                                      "currentTab": "thisWeek",
-                                      "limit_from": 0}) as response:
-            data = await response.json()
-            print(data)
-            pq = PyQuery(data['data'])
-            
+    await _calendar(ctx, nb_days=7)
+
 
     r_calendar = requests.get("https://api.coingecko.com/api/v3/coins/eos")
 
