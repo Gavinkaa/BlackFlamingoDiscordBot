@@ -1,12 +1,19 @@
 import json
 import re
+
+
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, date
+
 
 import ccxt
 import dateutil.parser
 import discord
+
 import interactions
 import requests_async as requests
+
 from dateutil import tz
 from dotenv import dotenv_values
 
@@ -43,70 +50,123 @@ async def funding(ctx):
 @cooldown(60, 10)  # have to be on the first layer of decorator
 async def funding_bitmex(ctx):
     url = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
-    r = await requests.get(url)
-    request_json = r.json()[0]
-    actual_funding = request_json['fundingRate']
-    next_funding = request_json['indicativeFundingRate']
+    try:
+        r = urllib.request.urlopen(url, timeout=3)
+        request_json = json.loads(r.read().decode())
+        actual_funding = request_json[0]['fundingRate']
+        next_funding = request_json[0]['indicativeFundingRate']
 
-    funding_timestamp = dateutil.parser.parse(request_json['fundingTimestamp'])
-    funding_timestamp = funding_timestamp.astimezone(
-        tz=tz.gettz("Europe/Paris"))
+        funding_timestamp = dateutil.parser.parse(request_json[0]['fundingTimestamp'])
+        funding_timestamp = funding_timestamp.astimezone(
+            tz=tz.gettz("Europe/Paris"))
 
-    next_funding_timestamp = (funding_timestamp + timedelta(hours=8))
-    print(next_funding_timestamp)
-    await ctx.send(
-        "The next funding event is at " +
-        funding_timestamp.strftime("%I:%M:%S %p (%Z)") +
-        ".\n📈 The rate is " + str(round(actual_funding * 100, 4)) + "% 📈\n\n" +
-        "The predicted funding event is at " +
-        next_funding_timestamp.strftime("%I:%M:%S %p (%Z)") +
-        ".\n📈 The rate is " + str(round(next_funding * 100, 4)) + "% 📈")
+        next_funding_timestamp = (funding_timestamp + timedelta(hours=8))
+
+        message = "The next funding event is at " + \
+                  funding_timestamp.strftime("%I:%M:%S %p (%Z)") + \
+                  ".\n📈 The rate is " + str(round(actual_funding * 100, 4)) + "% 📈\n\n" + \
+                  "The predicted funding event is at " + \
+                  next_funding_timestamp.strftime("%I:%M:%S %p (%Z)") + \
+                  ".\n📈 The rate is " + str(round(next_funding * 100, 4)) + "% 📈"
+    except:
+        message = "The funding rate could not be retrieved. Please try again later."
+    await ctx.send(message)
+
 
 
 @funding.subcommand(name="predicted", description="Display the predicted funding from several exchanges")
 @cooldown(60, 10)  # have to be on the first layer of decorator
 async def funding_predicted(ctx):
+    list_of_requests_to_send = []
     # First we send all the requests
     url_bitmex = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
-    r_bitmex = requests.get(url_bitmex)
+    list_of_requests_to_send.append(('bitmex', url_bitmex))
 
     url_bybit = "https://api.bybit.com/v2/public/tickers"
-    r_bybit = requests.get(url_bybit)
-
-    url_ftx = "https://ftx.com/api/futures/BTC-PERP/stats"
-    r_ftx = requests.get(url_ftx)
-
+    list_of_requests_to_send.append(('bybit', url_bybit))
+    
     url_okex = "https://www.okex.com/api/swap/v3/instruments/BTC-USD-SWAP/funding_time"
-    r_okex = requests.get(url_okex)
+    list_of_requests_to_send.append(('okex', url_okex))
+
+    def get_response_json(to_request):
+        """
+        Do a request to the url and return the json if the request is successful else return None
+        """
+
+        exchange_name, url = to_request
+
+        try:
+            pre_request = urllib.request.Request(url, headers={
+                'User-Agent': 'Mozilla/5.0'})
+            request = urllib.request.urlopen(pre_request, timeout=3)
+            request_json = json.loads(request.read().decode())
+            return exchange_name, request_json
+        except Exception as e:
+            print(exchange_name + ": " + str(e))
+            return exchange_name, None
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        response_list = list(pool.map(get_response_json, list_of_requests_to_send))
+    response_dict = {exchange_name: response_json for exchange_name, response_json in response_list}
+
+    nb_fundings = 0
+    total_funding_predicted = 0
 
     # Bitmex - processing the response
-    r_bitmex = await r_bitmex
-    predicted_bitmex = r_bitmex.json()[0]['indicativeFundingRate']
+    try:
+        predicted_bitmex = response_dict['bitmex'][0]['indicativeFundingRate']
+        bitmex_percentage = "{:7.4f}%".format(predicted_bitmex * 100)
+
+        nb_fundings += 1
+        total_funding_predicted += predicted_bitmex
+    except:
+        bitmex_percentage = "Could not retrieve the funding rate from bitmex"
     # Bitmex - end
+    print(bitmex_percentage)
 
     # Bybit - processing the response
-    r_bybit = await r_bybit
-    predicted_bybit = -999
+    try:
+        predicted_bybit = None
 
-    for j in r_bybit.json()['result']:
-        if j['symbol'] == 'BTCUSD':
-            predicted_bybit = float(j['predicted_funding_rate'])
+        for j in response_dict['bybit']['result']:
+            if j['symbol'] == 'BTCUSD':
+                predicted_bybit = float(j['predicted_funding_rate'])
+
+        nb_fundings += 1
+        total_funding_predicted += predicted_bybit
+    except:
+        predicted_bybit = None
+
+    if predicted_bybit is None:
+        bybit_percentage = "Could not retrieve the funding rate from bybit"
+    else:
+        bybit_percentage = "{:7.4f}%".format(predicted_bybit * 100)
     # Bybit - end
+    print(bybit_percentage)
 
     # Okex - processing the response
-    r_okex = await r_okex
-    predicted_okex = float(r_okex.json()['estimated_rate'])
-    # Okex - end
+    try:
+        predicted_okex = response_dict['okex']['funding_rate']
+        okex_percentage = "{:7.4f}%".format(predicted_okex * 100)
 
-    average = (predicted_bybit + predicted_bitmex + predicted_okex) / 4
+        nb_fundings += 1
+        total_funding_predicted += predicted_okex
+    except:
+        okex_percentage = "Could not retrieve the funding rate from okex"
+    # Okex - end
+    print(okex_percentage)
+
+    average = "{:7.4f}%".format(
+        total_funding_predicted / nb_fundings * 100) if nb_fundings > 0 else "Could not retrieve the average"
 
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
-        "--> Bitmex     (XBTUSD): " + "{:7.4f}".format(predicted_bitmex * 100) + "%\n" +
-        "--> Bybit      (BTCUSD): " + "{:7.4f}".format(predicted_bybit * 100) + "%\n" +
-        "--> Okex (BTC-USD-SWAP): " + "{:7.4f}".format(predicted_okex * 100) + "%\n" +
-        "==> Average: " + "{:.4f}".format(average * 100, 4) + "% <==```"
-    )
+        "--> Bitmex     (XBTUSD): " + bitmex_percentage + "\n" +
+        "--> Bybit      (BTCUSD): " + bybit_percentage + "\n" +
+        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n"+
+        "\n" +
+        "==> Average: " + average + " <==```"
+        )
 
 
 @bot.command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
