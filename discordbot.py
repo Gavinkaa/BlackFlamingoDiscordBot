@@ -5,15 +5,14 @@ from datetime import timedelta, date
 import ccxt
 import dateutil.parser
 import discord
+import interactions
 import requests_async as requests
 from dateutil import tz
-import interactions
-
-import language_selection as ls
-import lending as ld
-from eco_calendar import Event
-from decorator import *
 from dotenv import dotenv_values
+
+import lending as ld
+from decorator import *
+from eco_calendar import Event
 
 TOKEN = dotenv_values()['discord_token']
 
@@ -30,7 +29,9 @@ intents = discord.Intents.all()
 #                    help_command=help_command, intents=intents)
 bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL)
 bot.load('interactions.ext.files')  # Load extension for files uploading.
-                                    # Can dispose of extension when upgrading to interactions 4.4 (not available on pip yet)
+
+
+# Can dispose of extension when upgrading to interactions 4.4 (not available on pip yet)
 
 
 @bot.command(name='funding')
@@ -85,7 +86,6 @@ async def funding_predicted(ctx):
 
     # Bybit - processing the response
     r_bybit = await r_bybit
-    r_bybit = await r_bybit
     predicted_bybit = -999
 
     for j in r_bybit.json()['result']:
@@ -93,32 +93,24 @@ async def funding_predicted(ctx):
             predicted_bybit = float(j['predicted_funding_rate'])
     # Bybit - end
 
-    # Ftx - processing the response
-    r_ftx = await r_ftx
-    predicted_ftx = r_ftx.json()['result']['nextFundingRate'] * 8
-    # Ftx - end
-
     # Okex - processing the response
     r_okex = await r_okex
     predicted_okex = float(r_okex.json()['estimated_rate'])
     # Okex - end
 
-    average = (predicted_bybit + predicted_bitmex +
-               predicted_ftx + predicted_okex) / 4
+    average = (predicted_bybit + predicted_bitmex + predicted_okex) / 4
 
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + "{:7.4f}".format(predicted_bitmex * 100) + "%\n" +
         "--> Bybit      (BTCUSD): " + "{:7.4f}".format(predicted_bybit * 100) + "%\n" +
         "--> Okex (BTC-USD-SWAP): " + "{:7.4f}".format(predicted_okex * 100) + "%\n" +
-        "--> FTX  (BTC-PERP)(*8): " + "{:7.4f}".format(predicted_ftx * 100) + "%\n" +
-        "\n" +
         "==> Average: " + "{:.4f}".format(average * 100, 4) + "% <==```"
     )
 
 
 @bot.command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
-@cooldown(60,10)
+@cooldown(60, 10)
 async def lending(ctx):
     pass
 

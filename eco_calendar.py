@@ -1,16 +1,14 @@
 from datetime import datetime, date
 
-import discord
 import httpx
-import interactions
 from lxml import html as lh
 
 
 class Event:
+    COUNTRIES_FLAGS = {'United States': '🇺🇸',
+                       'Euro Zone': '🇪🇺',
+                       'France': '🇫🇷'}
 
-    COUNTRIES_FLAGS = {'United States':'🇺🇸',
-                       'Euro Zone':'🇪🇺',
-                       'France':'🇫🇷'}
     def __init__(self, time, country, sentiment, name, actual, forecast, previous):
         self.time = time
         self.country = country
@@ -21,35 +19,36 @@ class Event:
         self.previous = previous
 
     @classmethod
-    def embed_events(cls,events:list):
+    def embed_events(cls, events: list):
         header_str = f"{'Time':5}  {'Country':5}  {'Event':15}  {'Actual':8}  {'Forecast':8}  {'Previous':8}\n"
         footer_str = "Heure francaise, pays suivis : FR, EURO ZONE, US, data de investing.com"
         events_str = ""
         for day in events:
             events_str += f"====== {day['event_day']} ======\n"
             events_str += "".join([str(event) for event in day['events']])
-        print(header_str+events_str)
-        formatted_str = f"```\n{header_str+events_str}\n{footer_str}```"
+        print(header_str + events_str)
+        formatted_str = f"```\n{header_str + events_str}\n{footer_str}```"
         return formatted_str
         # embed = interactions.Embed(fields=[interactions.EmbedField(name='bite',value=header_str+events_str)])
         # return embed
 
     @classmethod
-    def parse_events(cls,html: lh) -> list:
-        #TODO just use lxml, no need for pyquery...
+    def parse_events(cls, html: lh) -> list:
+        # TODO just use lxml, no need for pyquery...
 
         all_events = []
         day_events = {'event_day': None, 'events': []}
         for event in html.iter('tr'):
-            if len(event.getchildren())==1:
+            if len(event.getchildren()) == 1:
                 # Empty on first day, otherwise add previous days.
                 if day_events['events']:
                     all_events.append(day_events)
                     day_events = {'event_day': None, 'events': []}
 
             elif 'event_attr_id' in event.attrib:
-                #TODO convert date to CET (add time filter in request)
-                event_datetime = datetime.fromisoformat(event.attrib['data-event-datetime'].replace('/','-').replace(' ','T'))
+                # TODO convert date to CET (add time filter in request)
+                event_datetime = datetime.fromisoformat(
+                    event.attrib['data-event-datetime'].replace('/', '-').replace(' ', 'T'))
                 day_events['event_day'] = event_datetime.date()
                 event_rows = event.getchildren()
                 time = event_datetime.time().strftime("%H:%M")
@@ -59,7 +58,7 @@ class Event:
                 actual = event_rows[4].text if event_rows[4].text else ""
                 forecast = event_rows[5].text if event_rows[5].text else ""
                 previous = event_rows[6].text if event_rows[6].text else ""
-                new_event = cls(time,country, sentiment, name, actual, forecast, previous)
+                new_event = cls(time, country, sentiment, name, actual, forecast, previous)
                 day_events['events'].append(new_event)
 
             else:
@@ -68,28 +67,28 @@ class Event:
         return all_events
 
     def __str__(self):
-        if len(self.name)>15:
-            words = self.name.replace('-',' ').split(' ')
-            multi_line=[]
+        if len(self.name) > 15:
+            words = self.name.replace('-', ' ').split(' ')
+            multi_line = []
             temp = []
-            length = 15 # For length which is incremented by one every (len(word)+1)*n words -1
+            length = 15  # For length which is incremented by one every (len(word)+1)*n words -1
             # TODO
             for word in words:
-                if len(word)+1 <= length:
+                if len(word) + 1 <= length:
                     temp.append(word)
-                    length -= len(word)+1
-                elif len(word)+1>length and length<15:
+                    length -= len(word) + 1
+                elif len(word) + 1 > length and length < 15:
                     multi_line.append(' '.join(temp))
-                    temp=[word[:15]]
-                    length=15-(len(word)+1)
-                elif len(word)+1>length and length==15:
+                    temp = [word[:15]]
+                    length = 15 - (len(word) + 1)
+                elif len(word) + 1 > length and length == 15:
                     multi_line.append(word[:15])
-                    temp=[]
+                    temp = []
                     length = 15
             multi_line.append(" ".join(temp))
             event_str = f'{self.time:4}  {self.country:5}  {multi_line[0]:15}  {self.actual:8}  {self.forecast:8}  {self.previous:8}\n'
             for line in multi_line[1:]:
-                event_str+=' '*14+f'{line:15}\n'
+                event_str += ' ' * 14 + f'{line:15}\n'
 
         else:
             event_str = f'{self.time:4}  {self.country:5}  {self.name:15}  {self.actual:8}  {self.forecast:8}  {self.previous:8}\n'
@@ -97,7 +96,7 @@ class Event:
         return event_str
 
     @classmethod
-    def fetch_events(cls,start_date: date, end_date: date):
+    def fetch_events(cls, start_date: date, end_date: date):
         data = {
             "country[]": [72, 22, 5],
             "importance[]": 3,
@@ -125,7 +124,7 @@ class Event:
             "Sec-Fetch-Site": "same-origin"
         }
         resp = httpx.post("https://www.investing.com/economic-calendar/Service/getCalendarFilteredData",
-                                headers=headers, data=data)
+                          headers=headers, data=data)
         html = resp.json()['data']
         html = lh.fromstring(html)
         return html
