@@ -23,12 +23,13 @@ class Event:
     @classmethod
     def embed_events(cls,events:list):
         header_str = f"{'Time':5}  {'Country':5}  {'Event':15}  {'Actual':8}  {'Forecast':8}  {'Previous':8}\n"
+        footer_str = "Heure francaise, pays suivis : FR, EURO ZONE, US, data de investing.com"
         events_str = ""
         for day in events:
             events_str += f"====== {day['event_day']} ======\n"
             events_str += "".join([str(event) for event in day['events']])
         print(header_str+events_str)
-        formatted_str = f"```{header_str+events_str}```"
+        formatted_str = f"```\n{header_str+events_str}\n{footer_str}```"
         return formatted_str
         # embed = interactions.Embed(fields=[interactions.EmbedField(name='bite',value=header_str+events_str)])
         # return embed
@@ -69,21 +70,23 @@ class Event:
     def __str__(self):
         if len(self.name)>15:
             words = self.name.replace('-',' ').split(' ')
-            print(words)
             multi_line=[]
             temp = []
-            length = -1 # For length which is incremented by one every (len(word)+1)*n words -1
+            length = 15 # For length which is incremented by one every (len(word)+1)*n words -1
             # TODO
             for word in words:
-                length += len(word)+1
-                if length>15:
+                if len(word)+1 <= length:
+                    temp.append(word)
+                    length -= len(word)+1
+                elif len(word)+1>length and length<15:
                     multi_line.append(' '.join(temp))
+                    temp=[word[:15]]
+                    length=15-(len(word)+1)
+                elif len(word)+1>length and length==15:
+                    multi_line.append(word[:15])
                     temp=[]
-                    length=-1
-
-                temp.append(word)
-            multi_line.append(' '.join(temp))
-            print(multi_line)
+                    length = 15
+            multi_line.append(" ".join(temp))
             event_str = f'{self.time:4}  {self.country:5}  {multi_line[0]:15}  {self.actual:8}  {self.forecast:8}  {self.previous:8}\n'
             for line in multi_line[1:]:
                 event_str+=' '*14+f'{line:15}\n'
