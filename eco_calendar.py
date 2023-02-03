@@ -1,13 +1,16 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 
-import requests
-from pyquery import PyQuery as pq
-import httpx
-import re
-from lxml import html as lh
 import discord
+import httpx
+import interactions
+from lxml import html as lh
+
 
 class Event:
+
+    COUNTRIES_FLAGS = {'United States':'🇺🇸',
+                       'Euro Zone':'🇪🇺',
+                       'France':'🇫🇷'}
     def __init__(self, time, country, sentiment, name, actual, forecast, previous):
         self.time = time
         self.country = country
@@ -19,14 +22,16 @@ class Event:
 
     @classmethod
     def embed_events(cls,events:list):
-        header_str = f"{'Time':5}  {'Country':15}  {'Event':25}  {'Actual':8}  {'Forecast':8}  {'Previous':8}\n"
+        header_str = f"{'Time':5}  {'Country':5}  {'Event':15}  {'Actual':8}  {'Forecast':8}  {'Previous':8}\n"
         events_str = ""
         for day in events:
             events_str += f"====== {day['event_day']} ======\n"
             events_str += "".join([str(event) for event in day['events']])
         print(header_str+events_str)
-        embed = discord.Embed(title='Calendrier économique', color=discord.Color.blue())
-        # TODO finish embed, only display possible is in bot commands
+        formatted_str = f"```{header_str+events_str}```"
+        return formatted_str
+        # embed = interactions.Embed(fields=[interactions.EmbedField(name='bite',value=header_str+events_str)])
+        # return embed
 
     @classmethod
     def parse_events(cls,html: lh) -> list:
@@ -47,7 +52,7 @@ class Event:
                 day_events['event_day'] = event_datetime.date()
                 event_rows = event.getchildren()
                 time = event_datetime.time().strftime("%H:%M")
-                country = event_rows[1].find('span').attrib['title']
+                country = cls.COUNTRIES_FLAGS[event_rows[1].find('span').attrib['title']]
                 sentiment = event_rows[2].attrib['title']
                 name = event_rows[3].find('a').text.strip()
                 actual = event_rows[4].text if event_rows[4].text else ""
@@ -62,25 +67,29 @@ class Event:
         return all_events
 
     def __str__(self):
-        if len(self.name)>25:
-            words = self.name.split(' ')
+        if len(self.name)>15:
+            words = self.name.replace('-',' ').split(' ')
+            print(words)
             multi_line=[]
             temp = []
-            length = 0
+            length = -1 # For length which is incremented by one every (len(word)+1)*n words -1
+            # TODO
             for word in words:
                 length += len(word)+1
-                if length>25:
+                if length>15:
                     multi_line.append(' '.join(temp))
                     temp=[]
-                    length=0
-                temp.append(word)
+                    length=-1
 
-            event_str = f'{self.time:4}  {self.country:15}  {multi_line[0]:25}  {self.actual:8}  {self.forecast:8}  {self.previous:8}\n'
+                temp.append(word)
+            multi_line.append(' '.join(temp))
+            print(multi_line)
+            event_str = f'{self.time:4}  {self.country:5}  {multi_line[0]:15}  {self.actual:8}  {self.forecast:8}  {self.previous:8}\n'
             for line in multi_line[1:]:
-                event_str+=' '*30+f'{line:25}\n'
+                event_str+=' '*14+f'{line:15}\n'
 
         else:
-            event_str = f'{self.time:4}  {self.country:15}  {self.name:25}  {self.actual:8}  {self.forecast:8}  {self.previous:8}\n'
+            event_str = f'{self.time:4}  {self.country:5}  {self.name:15}  {self.actual:8}  {self.forecast:8}  {self.previous:8}\n'
 
         return event_str
 
