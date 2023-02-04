@@ -45,6 +45,7 @@ bot.load('interactions.ext.files')  # Load extension for files uploading.
 
 @bot.command(name='funding')
 async def funding(ctx):
+    print('here')
     pass
 
 
@@ -412,10 +413,7 @@ async def on_bot_command_error(ctx, error):
 
 @bot.event
 async def on_ready():
-    print('Logged in as')
-    print(bot.get_self_user())
-    print(bot.user.id)
-    print('------\n')
+    print('Logged in.')
 
 
 bot.start()
