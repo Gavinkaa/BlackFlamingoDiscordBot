@@ -15,13 +15,15 @@ import interactions
 import requests_async as requests
 
 from dateutil import tz
-from dotenv import dotenv_values
 
 import lending as ld
 from decorator import *
 from eco_calendar import Event
 
-TOKEN = dotenv_values()['discord_token']
+with open("config.json") as config_file:
+    config = json.load(config_file)
+
+TOKEN = config['discord_token']
 
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
