@@ -20,11 +20,10 @@ import lending as ld
 from decorator import *
 from eco_calendar import Event
 
-with open("config.json") as config_file:
-    config = json.load(config_file)
 
-TOKEN = config['discord_token']
+from dotenv import dotenv_values
 
+TOKEN = dotenv_values()['discord_token']
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -85,10 +84,11 @@ async def funding_predicted(ctx):
     url_bitmex = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     list_of_requests_to_send.append(('bitmex', url_bitmex))
 
-    url_bybit = "https://api.bybit.com/v2/public/tickers"
-    list_of_requests_to_send.append(('bybit', url_bybit))
-    
-    url_okex = "https://www.okex.com/api/swap/v3/instruments/BTC-USD-SWAP/funding_time"
+    # No predicted funding in the API anymore...
+    # url_bybit = "https://api.bybit.com/derivatives/v3/public/funding/history-funding-rate?symbol=BTCUSD&category=linear"
+    # list_of_requests_to_send.append(('bybit', url_bybit))
+
+    url_okex = "https://www.okx.com/api/v5/public/funding-rate?instId=BTC-USD-SWAP"
     list_of_requests_to_send.append(('okex', url_okex))
 
     def get_response_json(to_request):
@@ -111,7 +111,6 @@ async def funding_predicted(ctx):
     with ThreadPoolExecutor(max_workers=4) as pool:
         response_list = list(pool.map(get_response_json, list_of_requests_to_send))
     response_dict = {exchange_name: response_json for exchange_name, response_json in response_list}
-
     nb_fundings = 0
     total_funding_predicted = 0
 
@@ -125,7 +124,7 @@ async def funding_predicted(ctx):
     except:
         bitmex_percentage = "Could not retrieve the funding rate from bitmex"
     # Bitmex - end
-    print(bitmex_percentage)
+    # print(bitmex_percentage)
 
     # Bybit - processing the response
     try:
@@ -145,19 +144,26 @@ async def funding_predicted(ctx):
     else:
         bybit_percentage = "{:7.4f}%".format(predicted_bybit * 100)
     # Bybit - end
-    print(bybit_percentage)
 
     # Okex - processing the response
     try:
-        predicted_okex = response_dict['okex']['funding_rate']
-        okex_percentage = "{:7.4f}%".format(predicted_okex * 100)
+        predicted_okex = None
+        symbols_okex = response_dict['okex']['data']
+        for symbol in symbols_okex:
+            if symbol['instId']=='BTC-USD-SWAP':
+                predicted_okex = float(symbol['nextFundingRate'])
+                nb_fundings += 1
+                total_funding_predicted += predicted_okex
 
-        nb_fundings += 1
-        total_funding_predicted += predicted_okex
+
     except:
+        predicted_okex = None
+
+    if predicted_okex is None:
         okex_percentage = "Could not retrieve the funding rate from okex"
+    else:
+        okex_percentage = "{:7.4f}%".format(predicted_okex * 100)
     # Okex - end
-    print(okex_percentage)
 
     average = "{:7.4f}%".format(
         total_funding_predicted / nb_fundings * 100) if nb_fundings > 0 else "Could not retrieve the average"
@@ -165,7 +171,6 @@ async def funding_predicted(ctx):
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + bitmex_percentage + "\n" +
-        "--> Bybit      (BTCUSD): " + bybit_percentage + "\n" +
         "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n"+
         "\n" +
         "==> Average: " + average + " <==```"
