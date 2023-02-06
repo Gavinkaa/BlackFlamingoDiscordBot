@@ -11,6 +11,7 @@ class OnCooldownError(Exception):
 
 
 def cooldown(duration, nb_calls=1):
+    #TODO can we simplify or is it because we give decorator arguments?
     def decorator(method):
         call_list = []
 
