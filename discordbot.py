@@ -21,9 +21,11 @@ from decorator import *
 from eco_calendar import Event
 
 
-from dotenv import dotenv_values
+with open("config.json") as config_file:
+    config = json.load(config_file)
 
-TOKEN = dotenv_values()['discord_token']
+TOKEN = config['discord_token']
+
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
