@@ -46,7 +46,6 @@ bot.load('interactions.ext.files')  # Load extension for files uploading.
 
 @bot.command(name='funding')
 async def funding(ctx):
-    print('here')
     pass
 
 
@@ -240,7 +239,6 @@ async def lending_reach(ctx, rate='2.0'):
     try:
 
         rate_to_reach = float(rate)
-        print(rate)
     except ValueError:
         rate_to_reach = 2.0
     msg = await ld.kucoin_lending_reach_rate(kucoin, rate_to_reach)
