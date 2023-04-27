@@ -1,11 +1,9 @@
 import json
 import re
-
-
+import yaml
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, date
-
 
 import ccxt
 import dateutil.parser
@@ -19,7 +17,6 @@ from dateutil import tz
 import lending as ld
 from decorator import *
 from eco_calendar import Event
-
 
 from dotenv import dotenv_values
 
@@ -73,7 +70,6 @@ async def funding_bitmex(ctx):
     except:
         message = "The funding rate could not be retrieved. Please try again later."
     await ctx.send(message)
-
 
 
 @funding.subcommand(name="predicted", description="Display the predicted funding from several exchanges")
@@ -150,7 +146,7 @@ async def funding_predicted(ctx):
         predicted_okex = None
         symbols_okex = response_dict['okex']['data']
         for symbol in symbols_okex:
-            if symbol['instId']=='BTC-USD-SWAP':
+            if symbol['instId'] == 'BTC-USD-SWAP':
                 predicted_okex = float(symbol['nextFundingRate'])
                 nb_fundings += 1
                 total_funding_predicted += predicted_okex
@@ -171,10 +167,10 @@ async def funding_predicted(ctx):
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + bitmex_percentage + "\n" +
-        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n"+
+        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n" +
         "\n" +
         "==> Average: " + average + " <==```"
-        )
+    )
 
 
 @bot.command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
@@ -395,9 +391,52 @@ async def economic_events(ctx: interactions.CommandContext, nb_days: int = 7):
     await ctx.send(events_embed)
 
 
+@bot.command(name='copy', description="Commands for the funding section")
+async def copy(ctx):
+    pass
+
+
+@copy.subcommand(name="size",
+                 description="Margin maximale à utiliser sur le copy trading (size totale = margin*levier)", options=[
+        interactions.Option(
+            name="bot_name",
+            description="Nom du bot à copier",
+            type=interactions.OptionType.STRING,
+            required=True,
+            choices=[interactions.Choice(name="alphabot", value="alphabot")]),
+        interactions.Option(
+            name="capital_total",
+            description="Capital total que vous souhaitez dédier au copy trading",
+            type=interactions.OptionType.INTEGER,
+            required=True),
+        interactions.Option(
+            name="levier",
+            description="Optionnel, si vous souhaitez régler un levier particulier. Recommandé 15 pour alphabot",
+            type=interactions.OptionType.INTEGER,
+            required=False)
+    ])
+
+async def size(ctx: interactions.CommandContext, capital_total: int, levier: int = 15, bot_name: str = "alphabot"):
+    with open('copy_bot_settings.yaml', 'r') as bot_settings:
+        donnees = yaml.load(bot_settings, Loader=yaml.FullLoader)
+        if bot_name not in donnees:
+            raise ValueError("Bot name not found in settings file, dev error")
+        maxDD = donnees[bot_name]["maxDD"]
+        levier = donnees[bot_name]["levier"]
+    if capital_total < 100:
+        await ctx.send("Le capital total doit être supérieur à 100")
+        return
+    if levier < 1:
+        await ctx.send("Le levier doit être supérieur à 1")
+        return
+    margin = capital_total / (levier * maxDD + 1)
+    await ctx.send("La taille de position à utiliser est de {:.2f}".format(margin))
+
+
 @funding.error
 @lending.error
 @location.error
+@calendar.error
 async def on_command_error(ctx, error):
     if isinstance(error, OnCooldownError):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
