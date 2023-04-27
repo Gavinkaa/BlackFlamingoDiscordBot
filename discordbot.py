@@ -18,7 +18,15 @@ import lending as ld
 from decorator import *
 from eco_calendar import Event
 
+<<<<<<< HEAD
 from dotenv import dotenv_values
+=======
+
+with open("config.json") as config_file:
+    config = json.load(config_file)
+
+TOKEN = config['discord_token']
+>>>>>>> upstream/master
 
 TOKEN = dotenv_values()['discord_token']
 kucoin = ccxt.kucoin({
@@ -41,7 +49,6 @@ bot.load('interactions.ext.files')  # Load extension for files uploading.
 
 @bot.command(name='funding')
 async def funding(ctx):
-    print('here')
     pass
 
 
@@ -146,7 +153,11 @@ async def funding_predicted(ctx):
         predicted_okex = None
         symbols_okex = response_dict['okex']['data']
         for symbol in symbols_okex:
+<<<<<<< HEAD
             if symbol['instId'] == 'BTC-USD-SWAP':
+=======
+            if symbol['instId']=='BTC-USD-SWAP':
+>>>>>>> upstream/master
                 predicted_okex = float(symbol['nextFundingRate'])
                 nb_fundings += 1
                 total_funding_predicted += predicted_okex
@@ -167,7 +178,11 @@ async def funding_predicted(ctx):
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + bitmex_percentage + "\n" +
+<<<<<<< HEAD
         "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n" +
+=======
+        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n"+
+>>>>>>> upstream/master
         "\n" +
         "==> Average: " + average + " <==```"
     )
@@ -234,7 +249,6 @@ async def lending_reach(ctx, rate='2.0'):
     try:
 
         rate_to_reach = float(rate)
-        print(rate)
     except ValueError:
         rate_to_reach = 2.0
     msg = await ld.kucoin_lending_reach_rate(kucoin, rate_to_reach)
