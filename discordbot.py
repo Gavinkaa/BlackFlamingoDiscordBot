@@ -18,15 +18,7 @@ import lending as ld
 from decorator import *
 from eco_calendar import Event
 
-<<<<<<< HEAD
 from dotenv import dotenv_values
-=======
-
-with open("config.json") as config_file:
-    config = json.load(config_file)
-
-TOKEN = config['discord_token']
->>>>>>> upstream/master
 
 TOKEN = dotenv_values()['discord_token']
 kucoin = ccxt.kucoin({
