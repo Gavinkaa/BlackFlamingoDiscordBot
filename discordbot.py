@@ -7,15 +7,16 @@ from datetime import timedelta, date
 
 import ccxt
 import dateutil.parser
-import discord
+from discord import Intents
 
 import interactions
+from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets
 import requests_async as requests
 
 from dateutil import tz
 
 import lending as ld
-from decorator import *
+from decorator import OnCooldownError
 from eco_calendar import Event
 
 from dotenv import dotenv_values
@@ -28,24 +29,26 @@ kucoin = ccxt.kucoin({
     'enableRateLimit': True,
 })
 
-intents = discord.Intents.all()
+intents = Intents.all()
 
 # bot = commands.Bot(command_prefix='!',
 #                    help_command=help_command, intents=intents)
 bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL)
-bot.load('interactions.ext.files')  # Load extension for files uploading.
+
+
+# bot.load('interactions.ext.files')  # Load extension for files uploading.
 
 
 # Can dispose of extension when upgrading to interactions 4.4 (not available on pip yet)
 
 
-@bot.command(name='funding')
+@slash_command(name='funding')
 async def funding(ctx):
     pass
 
-
-@funding.subcommand(name="bitmex", description="Display the actual and the predicted funding from bitmex")
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@funding.subcommand(sub_cmd_name="bitmex",
+                    sub_cmd_description="Display the actual and the predicted funding from bitmex")
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def funding_bitmex(ctx):
     url = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     try:
@@ -71,8 +74,9 @@ async def funding_bitmex(ctx):
     await ctx.send(message)
 
 
-@funding.subcommand(name="predicted", description="Display the predicted funding from several exchanges")
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@funding.subcommand(sub_cmd_name="predicted",
+                    sub_cmd_description="Display the predicted funding from several exchanges")
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def funding_predicted(ctx):
     list_of_requests_to_send = []
     # First we send all the requests
@@ -145,11 +149,8 @@ async def funding_predicted(ctx):
         predicted_okex = None
         symbols_okex = response_dict['okex']['data']
         for symbol in symbols_okex:
-<<<<<<< HEAD
+
             if symbol['instId'] == 'BTC-USD-SWAP':
-=======
-            if symbol['instId']=='BTC-USD-SWAP':
->>>>>>> upstream/master
                 predicted_okex = float(symbol['nextFundingRate'])
                 nb_fundings += 1
                 total_funding_predicted += predicted_okex
@@ -157,7 +158,6 @@ async def funding_predicted(ctx):
 
     except:
         predicted_okex = None
-
     if predicted_okex is None:
         okex_percentage = "Could not retrieve the funding rate from okex"
     else:
@@ -170,47 +170,38 @@ async def funding_predicted(ctx):
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + bitmex_percentage + "\n" +
-<<<<<<< HEAD
         "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n" +
-=======
-        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n"+
->>>>>>> upstream/master
         "\n" +
         "==> Average: " + average + " <==```"
     )
 
 
-@bot.command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
-@cooldown(60, 10)
+@slash_command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
+@cooldown(Buckets.USER, 1, 20)
 async def lending(ctx):
     pass
 
 
-@lending.subcommand(name="orderbook", description="Display a graph of the order book")
-@cooldown(60, 10)  # have to be on the first layer of decorator
-async def lending_orderbook(ctx: interactions.CommandContext):
+@lending.subcommand(sub_cmd_name="orderbook", sub_cmd_description="Display a graph of the order book")
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
+async def lending_orderbook(ctx: SlashContext):
     chart_io_bytes = await ld.kucoin_lending_get_orderbook_graph(kucoin)
-    chart = interactions.File(fp=chart_io_bytes, filename="orderbook.png")
+    chart = interactions.File(file=chart_io_bytes, file_name="orderbook.png")
     await ctx.send(files=chart)
 
 
-@lending.subcommand(name="walls",
-                    description="Display the list of walls (up to 10) (minimum 100k)",
-                    options=[
-                        interactions.Option(
-                            name="contract_term",
-                            description="contract term (all - t7 - t14 - t28)",
-                            type=interactions.OptionType.STRING,
-                            required=False
-                        ),
-                        interactions.Option(
-                            name="min_size",
-                            description="minimum size (>100k)",
-                            type=interactions.OptionType.INTEGER,
-                            required=False
-                        )
-                    ])
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@lending.subcommand(sub_cmd_name="walls",
+                    sub_cmd_description="Display the list of walls (up to 10) (minimum 100k)",
+                    )
+@slash_option(name="contract_term",
+              description="contract term (all - t7 - t14 - t28)",
+              opt_type=interactions.OptionType.STRING,
+              required=False)
+@slash_option(name="min_size",
+              description="minimum size (>100k)",
+              opt_type=interactions.OptionType.INTEGER,
+              required=False)
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def lending_walls(ctx, contract_term='all|t7|t14|t28', min_size=100):
     matched_contract_term = re.search('^t(7|14|28)$', contract_term)
     if matched_contract_term:
@@ -226,17 +217,13 @@ async def lending_walls(ctx, contract_term='all|t7|t14|t28', min_size=100):
     await ctx.send(msg)
 
 
-@lending.subcommand(name="reach",
-                    description="How much needs to be borrowed to reach a specific rate",
-                    options=[
-                        interactions.Option(
-                            name="rate",
-                            description="rate to reach",
-                            type=interactions.OptionType.STRING,
-                            required=False
-                        )
-                    ])
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@lending.subcommand(sub_cmd_name="reach",
+                    sub_cmd_description="How much needs to be borrowed to reach a specific rate", )
+@slash_option(name="rate",
+              description="rate to reach",
+              opt_type=interactions.OptionType.STRING,
+              required=False)
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def lending_reach(ctx, rate='2.0'):
     try:
 
@@ -247,21 +234,18 @@ async def lending_reach(ctx, rate='2.0'):
     await ctx.send(msg)
 
 
-@bot.command(name="location", description="Commands related to the location")
+@slash_command(name="location", description="Commands related to the location")
 async def location(ctx):
     pass
 
 
-@location.subcommand(name="choose-my-town",
-                     description="Register where you live!",
-                     options=[
-                         interactions.Option(
-                             name="town",
-                             description="your town",
-                             type=interactions.OptionType.STRING,
-                             required=True
-                         )
-                     ])
+@location.subcommand(sub_cmd_name="choose-my-town",
+                     sub_cmd_description="Register where you live!",
+                     )
+@slash_option(name="town",
+              description="your town",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
 async def choose_my_town(ctx, town):
     valid_town = await _town_name_valid(ctx, town)
     if valid_town:
@@ -282,16 +266,13 @@ async def choose_my_town(ctx, town):
             await ctx.send("Erreur")
 
 
-@location.subcommand(name="who-is-at",
-                     description="Enter a town name to see who is nearby!",
-                     options=[
-                         interactions.Option(
-                             name="town",
-                             description="the town to check",
-                             type=interactions.OptionType.STRING,
-                             required=True
-                         )
-                     ])
+@location.subcommand(sub_cmd_name="who-is-at",
+                     sub_cmd_description="Enter a town name to see who is nearby!",
+                     )
+@slash_option(name="town",
+              description="the town to check",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
 async def who_is_at(ctx, town):
     valid_town = await _town_name_valid(ctx, town)
     if valid_town:
@@ -328,16 +309,13 @@ async def _town_name_valid(ctx, town: str) -> bool:
         return True
 
 
-@location.subcommand(name="where",
-                     description="Check where @user lives",
-                     options=[
-                         interactions.Option(
-                             name="user",
-                             description="the user to check",
-                             type=interactions.OptionType.USER,
-                             required=True
-                         )
-                     ])
+@location.subcommand(sub_cmd_name="where",
+                     sub_cmd_description="Check where @user lives",
+                     )
+@slash_option(name="user",
+              description="the user to check",
+              opt_type=interactions.OptionType.USER,
+              required=True)
 async def where(ctx, user: interactions.Member):
     username = "<@!" + str(user.id) + ">"
     if "<@" in username and "&" not in username:
@@ -372,22 +350,17 @@ def _random_commenting_sentence():
     return sentence_drawn
 
 
-@bot.command(name='calendar', description="Commands for the economic calendar section")
+@slash_command(name='calendar', description="Commands for the economic calendar section")
 async def calendar(ctx):
     pass
 
 
-@calendar.subcommand(name="economic_events",
-                     description="Output the official economic calendar for US and EUROPE",
-                     options=[
-                         interactions.Option(
-                             name='nb_days',
-                             description="Number of days ahead you want to fetch, default 7, max 30",
-                             type=interactions.OptionType.INTEGER,
-                             required=False
-                         )
-                     ])
-async def economic_events(ctx: interactions.CommandContext, nb_days: int = 7):
+@calendar.subcommand(sub_cmd_name="economic_events",
+                     sub_cmd_description="Output the official economic calendar for US and EUROPE")
+@slash_option(name="nb_days", description="Number of days to display (max 30)", required=False,
+              opt_type=interactions.OptionType.INTEGER)
+@cooldown(Buckets.USER, 1, 20)
+async def economic_events(ctx: SlashContext, nb_days: int = 7):
     if nb_days > 30:
         nb_days = 30
     # Get events from investing.com, returns list of days {timestamp:,events:}
@@ -397,32 +370,29 @@ async def economic_events(ctx: interactions.CommandContext, nb_days: int = 7):
     await ctx.send(events_embed)
 
 
-@bot.command(name='copy', description="Commands for the funding section")
+@slash_command(name='copy', description="Commands for the funding section")
 async def copy(ctx):
     pass
 
 
-@copy.subcommand(name="size",
-                 description="Margin maximale à utiliser sur le copy trading (size totale = margin*levier)", options=[
-        interactions.Option(
-            name="bot_name",
-            description="Nom du bot à copier",
-            type=interactions.OptionType.STRING,
-            required=True,
-            choices=[interactions.Choice(name="alphabot", value="alphabot")]),
-        interactions.Option(
-            name="capital_total",
-            description="Capital total que vous souhaitez dédier au copy trading",
-            type=interactions.OptionType.INTEGER,
-            required=True),
-        interactions.Option(
-            name="levier",
-            description="Optionnel, si vous souhaitez régler un levier particulier. Recommandé 15 pour alphabot",
-            type=interactions.OptionType.INTEGER,
-            required=False)
-    ])
+@copy.subcommand(sub_cmd_name="size",
+                 sub_cmd_description="Margin maximale à utiliser sur le copy trading (size totale = margin*levier)")
+@slash_option(name="bot_name",
+              description="Nom du bot à copier",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="alphabot", value="alphabot")])
+@slash_option(name="capital_total",
+              description="Capital total que vous souhaitez dédier au copy trading",
+              required=True,
+              opt_type=interactions.OptionType.INTEGER)
+@slash_option(name="levier",
+              description="Optionnel, si vous souhaitez régler un levier particulier. Recommandé 15 pour alphabot",
+              opt_type=interactions.OptionType.INTEGER,
+              required=False)
 
-async def size(ctx: interactions.CommandContext, capital_total: int, levier: int = 15, bot_name: str = "alphabot"):
+@cooldown(Buckets.USER, 1, 20)
+async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name: str = "alphabot"):
     with open('copy_bot_settings.yaml', 'r') as bot_settings:
         donnees = yaml.load(bot_settings, Loader=yaml.FullLoader)
         if bot_name not in donnees:
