@@ -390,14 +390,11 @@ async def calendar(ctx):
 
 @calendar.subcommand(sub_cmd_name="economic_events",
                      sub_cmd_description="Output the official economic calendar for US and EUROPE")
-@slash_option(name="nb_days", description="Number of days to display (max 30)", required=False,
-              opt_type=interactions.OptionType.INTEGER)
+
 @cooldown(Buckets.USER, 1, 20)
-async def economic_events(ctx: SlashContext, nb_days: int = 7):
-    if nb_days > 30:
-        nb_days = 30
+async def economic_events(ctx: SlashContext):
     # Get events from investing.com, returns list of days {timestamp:,events:}
-    events_html = Event.fetch_events(date.today(), date.today() + timedelta(days=nb_days))
+    events_html = Event.fetch_events(date.today(), date.today() + timedelta(days=7))
     events = (Event.parse_events(events_html))
     events_embed = Event.embed_events(events)
     await ctx.send(events_embed)
