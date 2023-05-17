@@ -1,7 +1,11 @@
 import os
 import asyncio
 import time
+<<<<<<< Updated upstream
 
+=======
+from aioselenium import AsyncChrome, AsyncChromeOptions
+>>>>>>> Stashed changes
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By

@@ -10,17 +10,19 @@ import dateutil.parser
 from discord import Intents
 
 import interactions
-from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets
-import requests_async as requests
+from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets,File
 
 from dateutil import tz
 
 import lending as ld
 from decorator import OnCooldownError
 from eco_calendar import Event
-
+from selenium import webdriver
+from selenium.webdriver import ChromeOptions
+from selenium.webdriver.common.by import By
 from dotenv import dotenv_values
 
+from dotenv import dotenv_values
 TOKEN = dotenv_values()['discord_token']
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
@@ -41,7 +43,38 @@ bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL)
 
 # Can dispose of extension when upgrading to interactions 4.4 (not available on pip yet)
 
+@slash_command(name='coinalyze')
+async def coinalyze(ctx):
+    pass
+@coinalyze.subcommand(sub_cmd_name="indicator",
+                      sub_cmd_description="Display the actual aggregated fundings from exchanges")
+@slash_option(name="indicator_type",
+              description="Nom de l'indicateur à afficher",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="funding", value="funding"),SlashCommandChoice(name="oi", value="oi")])
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
+async def coinalyze_indicator(ctx, indicator_type:str):
+    await ctx.channel.send("Calcul des indicateurs...")
+    await get_coinalyze_data(indicator_type)
+    with open("screenshot.png", "rb") as img:
+        await ctx.send(file=File(img, "screenshot.png"))
+    await bot.close()
 
+async def get_coinalyze_data(indicator_type:str):
+    chrome_options = ChromeOptions()
+    # chrome_options.add_argument("--headless")
+    driver = webdriver.Chrome(options=chrome_options)
+    if indicator_type == "funding":
+        url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
+    else:
+        url = "https://fr.coinalyze.net/bitcoin/open-interest/"
+    driver.get(url)
+    widget_xpath = '/html/body/div/div[2]/div/div[4]/div[2]/div'
+    widget =  driver.find_element(by=By.XPATH, value=widget_xpath)
+    driver.execute_script("arguments[0].scrollIntoView();", widget)
+    driver.implicitly_wait(5)
+    widget.screenshot("widget.png")
 @slash_command(name='funding')
 async def funding(ctx):
     pass
@@ -398,7 +431,7 @@ async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name
         if bot_name not in donnees:
             raise ValueError("Bot name not found in settings file, dev error")
         maxDD = donnees[bot_name]["maxDD"]
-        levier = donnees[bot_name]["levier"]
+        levier = donnees[bot_name]["levier_max"]
     if capital_total < 100:
         await ctx.send("Le capital total doit être supérieur à 100")
         return
@@ -406,7 +439,7 @@ async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name
         await ctx.send("Le levier doit être supérieur à 1")
         return
     margin = capital_total / (levier * maxDD + 1)
-    await ctx.send("La taille de position à utiliser est de {:.2f}".format(margin))
+    await ctx.send("La taille de position à utiliser est de {:.2f}$".format(margin))
 
 
 @funding.error
