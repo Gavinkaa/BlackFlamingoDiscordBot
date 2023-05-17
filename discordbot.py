@@ -440,15 +440,18 @@ async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name
         if bot_name not in donnees:
             raise ValueError("Bot name not found in settings file, dev error")
         maxDD = donnees[bot_name]["maxDD"]
-        levier = donnees[bot_name]["levier_max"]
+        levier_max = donnees[bot_name]["levier_max"]
     if capital_total < 100:
         await ctx.send("Le capital total doit être supérieur à 100")
         return
     if levier < 1:
         await ctx.send("Le levier doit être supérieur à 1")
         return
+    elif levier > levier_max:
+        levier = levier_max
+        await ctx.send(f"!! Le levier max est de {levier_max} sur alphabot")
     margin = capital_total / (levier * maxDD + 1)
-    await ctx.send("La taille de position à utiliser est de {:.2f}$".format(margin))
+    await ctx.send("La taille de position à utiliser est de {:.2f}$, levier {}".format(margin,levier))
 
 
 @funding.error
