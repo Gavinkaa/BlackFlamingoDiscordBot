@@ -67,7 +67,7 @@ async def coinalyze_indicator(ctx, indicator_type:str):
 async def get_coinalyze_data(indicator_type:str):
     chrome_options = ChromeOptions()
     chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--window-size='1920,1080'")
+    chrome_options.add_argument("--window-size=1920,1080")
     driver = webdriver.Chrome(options=chrome_options)
     if indicator_type == "funding":
         url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
@@ -474,8 +474,8 @@ async def on_bot_command_error(ctx, error):
 
 
 @interactions.listen()
-async def on_ready():
-    print('Logged in.')
-
+async def on_ready(event):
+    print(f'Connected to {bot.guilds}')
+    print(f'Logged in as {bot.user.username} (ID: {bot.user.id})')
 
 bot.start()
