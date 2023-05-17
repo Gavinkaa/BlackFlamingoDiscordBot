@@ -24,7 +24,7 @@ async def kucoin_lending_get_orderbook_graph(kucoin):
     df = pd.DataFrame(columns=['rate', 'size'])
     for i in resp['data']:
         if int(i['size']) > 50000:
-            df = df.append({"rate": float(i['dailyIntRate']), "size": int(i['size'])}, ignore_index=True)
+            df = pd.concat([df,pd.DataFrame([{"rate": float(i['dailyIntRate']), "size": int(i['size'])}])], ignore_index=True)
 
     df_terms_aggr = df.groupby(['rate']).sum()
     df_terms_aggr.reset_index(level=0, inplace=True)

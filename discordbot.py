@@ -1,5 +1,8 @@
+import asyncio
 import json
 import re
+import time
+
 import yaml
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -13,6 +16,7 @@ import interactions
 from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets,File
 
 from dateutil import tz
+from selenium.webdriver.support.wait import WebDriverWait
 
 import lending as ld
 from decorator import OnCooldownError
@@ -55,26 +59,30 @@ async def coinalyze(ctx):
               choices=[SlashCommandChoice(name="funding", value="funding"),SlashCommandChoice(name="oi", value="oi")])
 @cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def coinalyze_indicator(ctx, indicator_type:str):
-    await ctx.channel.send("Calcul des indicateurs...")
+    await ctx.defer()
     await get_coinalyze_data(indicator_type)
-    with open("screenshot.png", "rb") as img:
-        await ctx.send(file=File(img, "screenshot.png"))
-    await bot.close()
+    with open("data/widget.png", "rb") as img:
+        await ctx.send(file=File(img, "widget.png"))
 
 async def get_coinalyze_data(indicator_type:str):
     chrome_options = ChromeOptions()
-    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--window-size='1920,1080'")
     driver = webdriver.Chrome(options=chrome_options)
     if indicator_type == "funding":
         url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
     else:
         url = "https://fr.coinalyze.net/bitcoin/open-interest/"
     driver.get(url)
+    await asyncio.sleep(8)
     widget_xpath = '/html/body/div/div[2]/div/div[4]/div[2]/div'
-    widget =  driver.find_element(by=By.XPATH, value=widget_xpath)
+    widget = driver.find_element(by=By.XPATH, value=widget_xpath)
     driver.execute_script("arguments[0].scrollIntoView();", widget)
     driver.implicitly_wait(5)
-    widget.screenshot("widget.png")
+
+    widget.screenshot("data/widget.png")
+    driver.quit()
+
 @slash_command(name='funding')
 async def funding(ctx):
     pass
@@ -316,8 +324,12 @@ async def who_is_at(ctx, town):
                 db_json = json.load(db)
                 for name_id in db_json.keys():
                     if town == db_json[name_id]:
-                        user = await bot.guilds[0].get_member(int(name_id))
-                        names_id.append(user.name)
+                        guild = ctx.guild
+                        member = guild.get_member(int(name_id))
+                        # If user left guild, wont be found in get member
+                        if member:
+                            names_id.append(member.user.username+'#'+member.user.discriminator)
+
                 if len(names_id) == 0:
                     await ctx.send(f"Personne n'a signalé habiter à {town}")
                 else:
@@ -453,7 +465,7 @@ async def on_command_error(ctx, error):
         await ctx.send('Error, please contact mod or admin')
 
 
-@bot.event
+@interactions.listen()
 async def on_bot_command_error(ctx, error):
     if isinstance(error, OnCooldownError):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
@@ -461,7 +473,7 @@ async def on_bot_command_error(ctx, error):
         await ctx.reply(msg)
 
 
-@bot.event
+@interactions.listen()
 async def on_ready():
     print('Logged in.')
 
