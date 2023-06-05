@@ -27,7 +27,11 @@ from selenium.webdriver.common.by import By
 from dotenv import dotenv_values
 
 from dotenv import dotenv_values
-TOKEN = dotenv_values()['discord_token']
+# TOKEN = dotenv_values()['discord_token'] # For thisma the maxi bg
+with open("config.json") as config_file:
+    config = json.load(config_file)
+
+TOKEN = config['discord_token']
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
