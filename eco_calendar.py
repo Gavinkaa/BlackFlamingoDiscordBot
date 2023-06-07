@@ -71,7 +71,6 @@ class Event:
             multi_line = []
             temp = []
             length = 15  # For length which is incremented by one every (len(word)+1)*n words -1
-            # TODO
             for word in words:
                 if len(word) + 1 <= length:
                     temp.append(word)
