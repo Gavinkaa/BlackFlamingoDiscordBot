@@ -43,7 +43,7 @@ intents = Intents.all()
 
 # bot = commands.Bot(command_prefix='!',
 #                    help_command=help_command, intents=intents)
-bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL)
+bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL, send_command_tracebacks=False)
 
 
 # bot.load('interactions.ext.files')  # Load extension for files uploading.
@@ -478,6 +478,10 @@ async def on_bot_command_error(ctx, error):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
             error.retry_after)
         await ctx.reply(msg)
+    else:
+        print(error)
+        await ctx.send('Error, please contact mod or admin')
+
 
 
 @interactions.listen()
