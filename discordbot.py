@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import re
 import time
@@ -24,14 +25,18 @@ from eco_calendar import Event
 from selenium import webdriver
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
-from dotenv import dotenv_values
-
+from selenium.webdriver.support import expected_conditions as EC
+from dotenv import load_dotenv
+import os
 from dotenv import dotenv_values
 # TOKEN = dotenv_values()['discord_token'] # For thisma the maxi bg
+# load_dotenv()
+
+# TOKEN = os.getenv('discord_token')
 with open("config.json") as config_file:
     config = json.load(config_file)
-
 TOKEN = config['discord_token']
+
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -64,28 +69,37 @@ async def coinalyze(ctx):
 @cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def coinalyze_indicator(ctx, indicator_type:str):
     await ctx.defer()
-    await get_coinalyze_data(indicator_type)
-    with open("data/widget.png", "rb") as img:
-        await ctx.send(file=File(img, "widget.png"))
+    img = await get_coinalyze_data(indicator_type)
+    if img:
+        await ctx.send(file=File(io.BytesIO(img), "chart.png"))
+    else:
+        await ctx.send("Erreur lors de la récupération des données")
 
 async def get_coinalyze_data(indicator_type:str):
     chrome_options = ChromeOptions()
-    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/114.0")
     driver = webdriver.Chrome(options=chrome_options)
-    if indicator_type == "funding":
-        url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
-    else:
-        url = "https://fr.coinalyze.net/bitcoin/open-interest/"
-    driver.get(url)
-    await asyncio.sleep(8)
-    widget_xpath = '/html/body/div/div[2]/div/div[4]/div[2]/div'
-    widget = driver.find_element(by=By.XPATH, value=widget_xpath)
-    driver.execute_script("arguments[0].scrollIntoView();", widget)
-    driver.implicitly_wait(5)
 
-    widget.screenshot("data/widget.png")
-    driver.quit()
+    try:
+        if indicator_type == "funding":
+            url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
+        else:
+            url = "https://fr.coinalyze.net/bitcoin/open-interest/"
+        driver.get(url)
+        await asyncio.sleep(5)
+        widget_id = 'futures-data-tv-chart'
+        widget = WebDriverWait(driver,10).until(EC.presence_of_element_located((By.ID, widget_id)))
+        driver.execute_script("arguments[0].scrollIntoView();", widget)
+        driver.implicitly_wait(3)
+        img = widget.screenshot_as_png
+        return img
+    except Exception as e:
+        print(e)
+        driver.quit()
+        return None
+
+
 
 @slash_command(name='funding')
 async def funding(ctx):
