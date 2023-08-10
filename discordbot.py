@@ -31,13 +31,13 @@ from dotenv import load_dotenv
 import os
 from dotenv import dotenv_values
 
-# TOKEN = dotenv_values()['discord_token'] # For thisma the maxi bg
-# load_dotenv()
+TOKEN = dotenv_values()['discord_token'] # For thisma the maxi bg
+load_dotenv()
 
-
-with open("config.json") as config_file:
-    config = json.load(config_file)
-TOKEN = config['discord_token']
+#
+# with open("config.json") as config_file:
+#     config = json.load(config_file)
+# TOKEN = config['discord_token']
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -83,6 +83,7 @@ async def coinalyze_indicator(ctx, indicator_type: str):
 async def get_coinalyze_data(indicator_type: str):
     chrome_options = ChromeOptions()
     chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument(
         "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/114.0")
     driver = webdriver.Chrome(options=chrome_options)
