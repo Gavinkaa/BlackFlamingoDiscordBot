@@ -1,4 +1,6 @@
 import asyncio
+import io
+
 import json
 import re
 import time
@@ -13,7 +15,7 @@ import dateutil.parser
 from discord import Intents
 
 import interactions
-from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets,File
+from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets, File
 
 from dateutil import tz
 from selenium.webdriver.support.wait import WebDriverWait
@@ -24,14 +26,18 @@ from eco_calendar import Event
 from selenium import webdriver
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from dotenv import load_dotenv
+import os
 from dotenv import dotenv_values
 
-from dotenv import dotenv_values
-# TOKEN = dotenv_values()['discord_token'] # For thisma the maxi bg
-with open("config.json") as config_file:
-    config = json.load(config_file)
+TOKEN = dotenv_values()['discord_token'] # For thisma the maxi bg
+load_dotenv()
 
-TOKEN = config['discord_token']
+#
+# with open("config.json") as config_file:
+#     config = json.load(config_file)
+# TOKEN = config['discord_token']
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -43,6 +49,7 @@ intents = Intents.all()
 
 # bot = commands.Bot(command_prefix='!',
 #                    help_command=help_command, intents=intents)
+
 bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL, send_command_tracebacks=False)
 
 
@@ -54,42 +61,56 @@ bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL, send_co
 @slash_command(name='coinalyze')
 async def coinalyze(ctx):
     pass
+
+
 @coinalyze.subcommand(sub_cmd_name="indicator",
                       sub_cmd_description="Display the actual aggregated fundings from exchanges")
 @slash_option(name="indicator_type",
               description="Nom de l'indicateur à afficher",
               opt_type=interactions.OptionType.STRING,
               required=True,
-              choices=[SlashCommandChoice(name="funding", value="funding"),SlashCommandChoice(name="oi", value="oi")])
+              choices=[SlashCommandChoice(name="funding", value="funding"), SlashCommandChoice(name="oi", value="oi")])
 @cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
-async def coinalyze_indicator(ctx, indicator_type:str):
+async def coinalyze_indicator(ctx, indicator_type: str):
     await ctx.defer()
-    await get_coinalyze_data(indicator_type)
-    with open("data/widget.png", "rb") as img:
-        await ctx.send(file=File(img, "widget.png"))
-
-async def get_coinalyze_data(indicator_type:str):
-    chrome_options = ChromeOptions()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--window-size=1920,1080")
-    driver = webdriver.Chrome(options=chrome_options)
-    if indicator_type == "funding":
-        url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
+    img = await get_coinalyze_data(indicator_type)
+    if img:
+        await ctx.send(file=File(io.BytesIO(img), "chart.png"))
     else:
-        url = "https://fr.coinalyze.net/bitcoin/open-interest/"
-    driver.get(url)
-    await asyncio.sleep(8)
-    widget_xpath = '/html/body/div/div[2]/div/div[4]/div[2]/div'
-    widget = driver.find_element(by=By.XPATH, value=widget_xpath)
-    driver.execute_script("arguments[0].scrollIntoView();", widget)
-    driver.implicitly_wait(5)
+        await ctx.send("Erreur lors de la récupération des données")
 
-    widget.screenshot("data/widget.png")
-    driver.quit()
+
+async def get_coinalyze_data(indicator_type: str):
+    chrome_options = ChromeOptions()
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument(
+        "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/114.0")
+    driver = webdriver.Chrome(options=chrome_options)
+
+    try:
+        if indicator_type == "funding":
+            url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
+        else:
+            url = "https://fr.coinalyze.net/bitcoin/open-interest/"
+        driver.get(url)
+        await asyncio.sleep(5)
+        widget_id = 'futures-data-tv-chart'
+        widget = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, widget_id)))
+        driver.execute_script("arguments[0].scrollIntoView();", widget)
+        driver.implicitly_wait(3)
+        img = widget.screenshot_as_png
+        return img
+    except Exception as e:
+        print(e)
+        driver.quit()
+        return None
+
 
 @slash_command(name='funding')
 async def funding(ctx):
     pass
+
 
 @funding.subcommand(sub_cmd_name="bitmex",
                     sub_cmd_description="Display the actual and the predicted funding from bitmex")
@@ -332,7 +353,7 @@ async def who_is_at(ctx, town):
                         member = guild.get_member(int(name_id))
                         # If user left guild, wont be found in get member
                         if member:
-                            names_id.append(member.user.username+'#'+member.user.discriminator)
+                            names_id.append(member.user.username + '#' + member.user.discriminator)
 
                 if len(names_id) == 0:
                     await ctx.send(f"Personne n'a signalé habiter à {town}")
@@ -406,7 +427,6 @@ async def calendar(ctx):
 
 @calendar.subcommand(sub_cmd_name="economic_events",
                      sub_cmd_description="Output the official economic calendar for US and EUROPE")
-
 @cooldown(Buckets.USER, 1, 20)
 async def economic_events(ctx: SlashContext):
     # Get events from investing.com, returns list of days {timestamp:,events:}
@@ -436,7 +456,6 @@ async def copy(ctx):
               description="Optionnel, si vous souhaitez régler un levier particulier. Recommandé 15 pour alphabot",
               opt_type=interactions.OptionType.INTEGER,
               required=False)
-
 @cooldown(Buckets.USER, 1, 20)
 async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name: str = "alphabot"):
     with open('copy_bot_settings.yaml', 'r') as bot_settings:
@@ -455,7 +474,7 @@ async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name
         levier = levier_max
         await ctx.send(f"!! Le levier max est de {levier_max} sur alphabot")
     margin = capital_total / (levier * maxDD + 1)
-    await ctx.send("La taille de position à utiliser est de {:.2f}$, levier {}".format(margin,levier))
+    await ctx.send("La taille de position à utiliser est de {:.2f}$, levier {}".format(margin, levier))
 
 
 @funding.error
@@ -483,10 +502,10 @@ async def on_bot_command_error(ctx, error):
         await ctx.send('Error, please contact mod or admin')
 
 
-
 @interactions.listen()
 async def on_ready(event):
     print(f'Connected to {bot.guilds}')
     print(f'Logged in as {bot.user.username} (ID: {bot.user.id})')
+
 
 bot.start()
