@@ -1,31 +1,39 @@
+import asyncio
+import io
+
 import json
 import re
+import time
 
-
+import yaml
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta, date
 
-
 import ccxt
 import dateutil.parser
-import discord
+from discord import Intents
 
 import interactions
-import requests_async as requests
+from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets, File
 
 from dateutil import tz
+from selenium.webdriver.support.wait import WebDriverWait
 
 import lending as ld
-from decorator import *
+from decorator import OnCooldownError
 from eco_calendar import Event
+from selenium import webdriver
+from selenium.webdriver import ChromeOptions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from dotenv import load_dotenv
+import os
 
 
 with open("config.json") as config_file:
     config = json.load(config_file)
-
 TOKEN = config['discord_token']
-
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -33,24 +41,76 @@ kucoin = ccxt.kucoin({
     'enableRateLimit': True,
 })
 
-intents = discord.Intents.all()
+intents = Intents.all()
 
 # bot = commands.Bot(command_prefix='!',
 #                    help_command=help_command, intents=intents)
-bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL)
-bot.load('interactions.ext.files')  # Load extension for files uploading.
+
+bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL, send_command_tracebacks=False)
+
+
+# bot.load('interactions.ext.files')  # Load extension for files uploading.
 
 
 # Can dispose of extension when upgrading to interactions 4.4 (not available on pip yet)
 
+@slash_command(name='coinalyze')
+async def coinalyze(ctx):
+    pass
 
-@bot.command(name='funding')
+
+@coinalyze.subcommand(sub_cmd_name="indicator",
+                      sub_cmd_description="Display the actual aggregated fundings from exchanges")
+@slash_option(name="indicator_type",
+              description="Nom de l'indicateur à afficher",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="funding", value="funding"), SlashCommandChoice(name="oi", value="oi")])
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
+async def coinalyze_indicator(ctx, indicator_type: str):
+    await ctx.defer()
+    img = await get_coinalyze_data(indicator_type)
+    if img:
+        await ctx.send(file=File(io.BytesIO(img), "chart.png"))
+    else:
+        await ctx.send("Erreur lors de la récupération des données")
+
+
+async def get_coinalyze_data(indicator_type: str):
+    chrome_options = ChromeOptions()
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument(
+        "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/114.0")
+    driver = webdriver.Chrome(options=chrome_options)
+
+    try:
+        if indicator_type == "funding":
+            url = "https://fr.coinalyze.net/bitcoin/funding-rate/"
+        else:
+            url = "https://fr.coinalyze.net/bitcoin/open-interest/"
+        driver.get(url)
+        await asyncio.sleep(5)
+        widget_id = 'futures-data-tv-chart'
+        widget = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, widget_id)))
+        driver.execute_script("arguments[0].scrollIntoView();", widget)
+        driver.implicitly_wait(3)
+        img = widget.screenshot_as_png
+        return img
+    except Exception as e:
+        print(e)
+        driver.quit()
+        return None
+
+
+@slash_command(name='funding')
 async def funding(ctx):
     pass
 
 
-@funding.subcommand(name="bitmex", description="Display the actual and the predicted funding from bitmex")
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@funding.subcommand(sub_cmd_name="bitmex",
+                    sub_cmd_description="Display the actual and the predicted funding from bitmex")
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def funding_bitmex(ctx):
     url = "https://www.bitmex.com/api/v1/instrument?symbol=XBTUSD&count=1&reverse=true"
     try:
@@ -76,9 +136,9 @@ async def funding_bitmex(ctx):
     await ctx.send(message)
 
 
-
-@funding.subcommand(name="predicted", description="Display the predicted funding from several exchanges")
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@funding.subcommand(sub_cmd_name="predicted",
+                    sub_cmd_description="Display the predicted funding from several exchanges")
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def funding_predicted(ctx):
     list_of_requests_to_send = []
     # First we send all the requests
@@ -151,7 +211,8 @@ async def funding_predicted(ctx):
         predicted_okex = None
         symbols_okex = response_dict['okex']['data']
         for symbol in symbols_okex:
-            if symbol['instId']=='BTC-USD-SWAP':
+
+            if symbol['instId'] == 'BTC-USD-SWAP':
                 predicted_okex = float(symbol['nextFundingRate'])
                 nb_fundings += 1
                 total_funding_predicted += predicted_okex
@@ -159,7 +220,6 @@ async def funding_predicted(ctx):
 
     except:
         predicted_okex = None
-
     if predicted_okex is None:
         okex_percentage = "Could not retrieve the funding rate from okex"
     else:
@@ -172,43 +232,38 @@ async def funding_predicted(ctx):
     await ctx.send(
         "📈 **Predicted fundings** 📈\n" + "```" +
         "--> Bitmex     (XBTUSD): " + bitmex_percentage + "\n" +
-        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n"+
+        "--> Okex (BTC-USD-SWAP): " + okex_percentage + "\n" +
         "\n" +
         "==> Average: " + average + " <==```"
-        )
+    )
 
 
-@bot.command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
-@cooldown(60, 10)
+@slash_command(name='lending', description="Commands for the KuCoin Crypto Lending USDT section")
+@cooldown(Buckets.USER, 1, 20)
 async def lending(ctx):
     pass
 
 
-@lending.subcommand(name="orderbook", description="Display a graph of the order book")
-@cooldown(60, 10)  # have to be on the first layer of decorator
-async def lending_orderbook(ctx: interactions.CommandContext):
+@lending.subcommand(sub_cmd_name="orderbook", sub_cmd_description="Display a graph of the order book")
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
+async def lending_orderbook(ctx: SlashContext):
     chart_io_bytes = await ld.kucoin_lending_get_orderbook_graph(kucoin)
-    chart = interactions.File(fp=chart_io_bytes, filename="orderbook.png")
+    chart = interactions.File(file=chart_io_bytes, file_name="orderbook.png")
     await ctx.send(files=chart)
 
 
-@lending.subcommand(name="walls",
-                    description="Display the list of walls (up to 10) (minimum 100k)",
-                    options=[
-                        interactions.Option(
-                            name="contract_term",
-                            description="contract term (all - t7 - t14 - t28)",
-                            type=interactions.OptionType.STRING,
-                            required=False
-                        ),
-                        interactions.Option(
-                            name="min_size",
-                            description="minimum size (>100k)",
-                            type=interactions.OptionType.INTEGER,
-                            required=False
-                        )
-                    ])
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@lending.subcommand(sub_cmd_name="walls",
+                    sub_cmd_description="Display the list of walls (up to 10) (minimum 100k)",
+                    )
+@slash_option(name="contract_term",
+              description="contract term (all - t7 - t14 - t28)",
+              opt_type=interactions.OptionType.STRING,
+              required=False)
+@slash_option(name="min_size",
+              description="minimum size (>100k)",
+              opt_type=interactions.OptionType.INTEGER,
+              required=False)
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def lending_walls(ctx, contract_term='all|t7|t14|t28', min_size=100):
     matched_contract_term = re.search('^t(7|14|28)$', contract_term)
     if matched_contract_term:
@@ -224,17 +279,13 @@ async def lending_walls(ctx, contract_term='all|t7|t14|t28', min_size=100):
     await ctx.send(msg)
 
 
-@lending.subcommand(name="reach",
-                    description="How much needs to be borrowed to reach a specific rate",
-                    options=[
-                        interactions.Option(
-                            name="rate",
-                            description="rate to reach",
-                            type=interactions.OptionType.STRING,
-                            required=False
-                        )
-                    ])
-@cooldown(60, 10)  # have to be on the first layer of decorator
+@lending.subcommand(sub_cmd_name="reach",
+                    sub_cmd_description="How much needs to be borrowed to reach a specific rate", )
+@slash_option(name="rate",
+              description="rate to reach",
+              opt_type=interactions.OptionType.STRING,
+              required=False)
+@cooldown(Buckets.USER, 1, 20)  # have to be on the first layer of decorator
 async def lending_reach(ctx, rate='2.0'):
     try:
 
@@ -245,21 +296,18 @@ async def lending_reach(ctx, rate='2.0'):
     await ctx.send(msg)
 
 
-@bot.command(name="location", description="Commands related to the location")
+@slash_command(name="location", description="Commands related to the location")
 async def location(ctx):
     pass
 
 
-@location.subcommand(name="choose-my-town",
-                     description="Register where you live!",
-                     options=[
-                         interactions.Option(
-                             name="town",
-                             description="your town",
-                             type=interactions.OptionType.STRING,
-                             required=True
-                         )
-                     ])
+@location.subcommand(sub_cmd_name="choose-my-town",
+                     sub_cmd_description="Register where you live!",
+                     )
+@slash_option(name="town",
+              description="your town",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
 async def choose_my_town(ctx, town):
     valid_town = await _town_name_valid(ctx, town)
     if valid_town:
@@ -280,16 +328,13 @@ async def choose_my_town(ctx, town):
             await ctx.send("Erreur")
 
 
-@location.subcommand(name="who-is-at",
-                     description="Enter a town name to see who is nearby!",
-                     options=[
-                         interactions.Option(
-                             name="town",
-                             description="the town to check",
-                             type=interactions.OptionType.STRING,
-                             required=True
-                         )
-                     ])
+@location.subcommand(sub_cmd_name="who-is-at",
+                     sub_cmd_description="Enter a town name to see who is nearby!",
+                     )
+@slash_option(name="town",
+              description="the town to check",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
 async def who_is_at(ctx, town):
     valid_town = await _town_name_valid(ctx, town)
     if valid_town:
@@ -300,8 +345,12 @@ async def who_is_at(ctx, town):
                 db_json = json.load(db)
                 for name_id in db_json.keys():
                     if town == db_json[name_id]:
-                        user = await bot.guilds[0].get_member(int(name_id))
-                        names_id.append(user.name)
+                        guild = ctx.guild
+                        member = guild.get_member(int(name_id))
+                        # If user left guild, wont be found in get member
+                        if member:
+                            names_id.append(member.user.username + '#' + member.user.discriminator)
+
                 if len(names_id) == 0:
                     await ctx.send(f"Personne n'a signalé habiter à {town}")
                 else:
@@ -326,16 +375,13 @@ async def _town_name_valid(ctx, town: str) -> bool:
         return True
 
 
-@location.subcommand(name="where",
-                     description="Check where @user lives",
-                     options=[
-                         interactions.Option(
-                             name="user",
-                             description="the user to check",
-                             type=interactions.OptionType.USER,
-                             required=True
-                         )
-                     ])
+@location.subcommand(sub_cmd_name="where",
+                     sub_cmd_description="Check where @user lives",
+                     )
+@slash_option(name="user",
+              description="the user to check",
+              opt_type=interactions.OptionType.USER,
+              required=True)
 async def where(ctx, user: interactions.Member):
     username = "<@!" + str(user.id) + ">"
     if "<@" in username and "&" not in username:
@@ -370,34 +416,67 @@ def _random_commenting_sentence():
     return sentence_drawn
 
 
-@bot.command(name='calendar', description="Commands for the economic calendar section")
+@slash_command(name='calendar', description="Commands for the economic calendar section")
 async def calendar(ctx):
     pass
 
 
-@calendar.subcommand(name="economic_events",
-                     description="Output the official economic calendar for US and EUROPE",
-                     options=[
-                         interactions.Option(
-                             name='nb_days',
-                             description="Number of days ahead you want to fetch, default 7, max 30",
-                             type=interactions.OptionType.INTEGER,
-                             required=False
-                         )
-                     ])
-async def economic_events(ctx: interactions.CommandContext, nb_days: int = 7):
-    if nb_days > 30:
-        nb_days = 30
+@calendar.subcommand(sub_cmd_name="economic_events",
+                     sub_cmd_description="Output the official economic calendar for US and EUROPE")
+@cooldown(Buckets.USER, 1, 20)
+async def economic_events(ctx: SlashContext):
     # Get events from investing.com, returns list of days {timestamp:,events:}
-    events_html = Event.fetch_events(date.today(), date.today() + timedelta(days=nb_days))
+    events_html = Event.fetch_events(date.today(), date.today() + timedelta(days=7))
     events = (Event.parse_events(events_html))
     events_embed = Event.embed_events(events)
     await ctx.send(events_embed)
 
 
+@slash_command(name='copy', description="Commands for the funding section")
+async def copy(ctx):
+    pass
+
+
+@copy.subcommand(sub_cmd_name="size",
+                 sub_cmd_description="Margin maximale à utiliser sur le copy trading (size totale = margin*levier)")
+@slash_option(name="bot_name",
+              description="Nom du bot à copier",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="alphabot", value="alphabot")])
+@slash_option(name="capital_total",
+              description="Capital total que vous souhaitez dédier au copy trading",
+              required=True,
+              opt_type=interactions.OptionType.INTEGER)
+@slash_option(name="levier",
+              description="Optionnel, si vous souhaitez régler un levier particulier. Recommandé 15 pour alphabot",
+              opt_type=interactions.OptionType.INTEGER,
+              required=False)
+@cooldown(Buckets.USER, 1, 20)
+async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name: str = "alphabot"):
+    with open('copy_bot_settings.yaml', 'r') as bot_settings:
+        donnees = yaml.load(bot_settings, Loader=yaml.FullLoader)
+        if bot_name not in donnees:
+            raise ValueError("Bot name not found in settings file, dev error")
+        maxDD = donnees[bot_name]["maxDD"]
+        levier_max = donnees[bot_name]["levier_max"]
+    if capital_total < 100:
+        await ctx.send("Le capital total doit être supérieur à 100")
+        return
+    if levier < 1:
+        await ctx.send("Le levier doit être supérieur à 1")
+        return
+    elif levier > levier_max:
+        levier = levier_max
+        await ctx.send(f"!! Le levier max est de {levier_max} sur alphabot")
+    margin = capital_total / (levier * maxDD + 1)
+    await ctx.send("La taille de position à utiliser est de {:.2f}$, levier {}".format(margin, levier))
+
+
 @funding.error
 @lending.error
 @location.error
+@calendar.error
 async def on_command_error(ctx, error):
     if isinstance(error, OnCooldownError):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
@@ -408,17 +487,21 @@ async def on_command_error(ctx, error):
         await ctx.send('Error, please contact mod or admin')
 
 
-@bot.event
+@interactions.listen()
 async def on_bot_command_error(ctx, error):
     if isinstance(error, OnCooldownError):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
             error.retry_after)
         await ctx.reply(msg)
+    else:
+        print(error)
+        await ctx.send('Error, please contact mod or admin')
 
 
-@bot.event
-async def on_ready():
-    print('Logged in.')
+@interactions.listen()
+async def on_ready(event):
+    print(f'Connected to {bot.guilds}')
+    print(f'Logged in as {bot.user.username} (ID: {bot.user.id})')
 
 
 bot.start()
