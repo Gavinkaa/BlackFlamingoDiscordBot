@@ -1,5 +1,7 @@
 alphabot:
   maxDD: 15
-  positionSize: 1000
+  avgPositionSize: 1000
+  smallestPositionSize: 330
+  leverage: 15
   avgNumberPositions: 5
   capital: 2000

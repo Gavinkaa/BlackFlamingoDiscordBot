@@ -457,7 +457,7 @@ async def copy(ctx):
                 required=False,
                 opt_type=interactions.OptionType.INTEGER)
 @cooldown(Buckets.USER, 1, 20)
-async def size(ctx: SlashContext, capital_total: int, dd_max_user: int = 30, bot_name: str = "alphabot"):
+async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_name: str = "alphabot"):
     with open('copy_bot_settings.yaml', 'r') as bot_settings:
         donnees = yaml.load(bot_settings, Loader=yaml.FullLoader)
         if bot_name not in donnees:
@@ -465,15 +465,27 @@ async def size(ctx: SlashContext, capital_total: int, dd_max_user: int = 30, bot
 
     dd_max_bot = donnees[bot_name]["maxDD"]
     capital_bot = donnees[bot_name]["capital"]
+    avg_position_size_bot = donnees[bot_name]["avgPositionSize"]
+    smallest_position_size_bot = donnees[bot_name]["smallestPositionSize"]
+    leverage = donnees[bot_name]["leverage"]
+
     if dd_max_user > 60:
         await ctx.send("Le drawdown maximal doit être inférieur à 60%")
         return
 
-    if capital_total < 100:
+    if dd_max_user < 0:
+        await ctx.send("Le drawdown maximal doit être supérieur à 0%")
+        return
+
+    if capital_user < 100:
         await ctx.send("Le capital total doit être supérieur à 100")
         return
 
-    multiplier = (capital_total / capital_bot) * (dd_max_user / dd_max_bot)
+    multiplier = (capital_user / capital_bot) * (dd_max_user / dd_max_bot)
+
+    if multiplier*smallest_position_size_bot < 100:
+        await ctx.send("Le capital total est trop faible pour le drawdown maximal choisi, une position doit etre supérieure à 100$")
+        return
 
     await ctx.send("Vos réglages optimaux pour le copy trading Bitget sont les suivants (Cliquer sur Advanced) : \n"
                    "Margin mode : Copy margin\n"
