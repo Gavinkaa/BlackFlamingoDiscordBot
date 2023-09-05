@@ -30,16 +30,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
 import os
 
-# from dotenv import dotenv_values
-
-# TOKEN = dotenv_values()['discord_token']  # For thisma the maxi bg
-# load_dotenv()
-
 
 with open("config.json") as config_file:
     config = json.load(config_file)
 TOKEN = config['discord_token']
-
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -63,7 +57,6 @@ bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL, send_co
 @slash_command(name='coinalyze')
 async def coinalyze(ctx):
     pass
-
 
 @coinalyze.subcommand(sub_cmd_name="indicator",
                       sub_cmd_description="Display the actual aggregated fundings from exchanges")
@@ -444,6 +437,7 @@ async def copy(ctx):
 
 @copy.subcommand(sub_cmd_name="size",
                     sub_cmd_description="Calculer la taille de position optimale pour le copy trading Bitget")
+
 @slash_option(name="bot_name",
               description="Nom du bot à copier",
               opt_type=interactions.OptionType.STRING,
@@ -494,7 +488,6 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
                    "Margin mode : Copy margin\n"
                    "Leverage : Specified leverage : 15 short et long\n"
                    "Copy mode : Multiplier avec un multiplier de {:.2f}\n".format(multiplier))
-
 
 
 @funding.error
