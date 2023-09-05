@@ -31,13 +31,13 @@ from dotenv import load_dotenv
 import os
 from dotenv import dotenv_values
 
-TOKEN = dotenv_values()['discord_token'] # For thisma the maxi bg
-load_dotenv()
+# TOKEN = dotenv_values()['discord_token']  # For thisma the maxi bg
+# load_dotenv()
 
-#
-# with open("config.json") as config_file:
-#     config = json.load(config_file)
-# TOKEN = config['discord_token']
+with open("config.json") as config_file:
+    config = json.load(config_file)
+
+TOKEN = config['discord_token']
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -442,7 +442,7 @@ async def copy(ctx):
 
 
 @copy.subcommand(sub_cmd_name="size",
-                 sub_cmd_description="Margin maximale à utiliser sur le copy trading (size totale = margin*levier)")
+                    sub_cmd_description="Calculer la taille de position optimale pour le copy trading Bitget")
 @slash_option(name="bot_name",
               description="Nom du bot à copier",
               opt_type=interactions.OptionType.STRING,
@@ -452,29 +452,33 @@ async def copy(ctx):
               description="Capital total que vous souhaitez dédier au copy trading",
               required=True,
               opt_type=interactions.OptionType.INTEGER)
-@slash_option(name="levier",
-              description="Optionnel, si vous souhaitez régler un levier particulier. Recommandé 15 pour alphabot",
-              opt_type=interactions.OptionType.INTEGER,
-              required=False)
+@slash_option(name="dd_max_user",
+                description="Drawdown maximal sur votre capital, doit etre inférieur à 60%. Par défaut 30%",
+                required=False,
+                opt_type=interactions.OptionType.INTEGER)
 @cooldown(Buckets.USER, 1, 20)
-async def size(ctx: SlashContext, capital_total: int, levier: int = 15, bot_name: str = "alphabot"):
+async def size(ctx: SlashContext, capital_total: int, dd_max_user: int = 30, bot_name: str = "alphabot"):
     with open('copy_bot_settings.yaml', 'r') as bot_settings:
         donnees = yaml.load(bot_settings, Loader=yaml.FullLoader)
         if bot_name not in donnees:
             raise ValueError("Bot name not found in settings file, dev error")
-        maxDD = donnees[bot_name]["maxDD"]
-        levier_max = donnees[bot_name]["levier_max"]
+
+    dd_max_bot = donnees[bot_name]["maxDD"]
+    capital_bot = donnees[bot_name]["capital"]
+    if dd_max_user > 60:
+        await ctx.send("Le drawdown maximal doit être inférieur à 60%")
+        return
+
     if capital_total < 100:
         await ctx.send("Le capital total doit être supérieur à 100")
         return
-    if levier < 1:
-        await ctx.send("Le levier doit être supérieur à 1")
-        return
-    elif levier > levier_max:
-        levier = levier_max
-        await ctx.send(f"!! Le levier max est de {levier_max} sur alphabot")
-    margin = capital_total / (levier * maxDD + 1)
-    await ctx.send("La taille de position à utiliser est de {:.2f}$, levier {}".format(margin, levier))
+
+    multiplier = (capital_total / capital_bot) * (dd_max_user / dd_max_bot)
+
+    await ctx.send("Vos réglages optimaux pour le copy trading Bitget sont les suivants (Cliquer sur Advanced) : \n"
+                   "Margin mode : Copy margin\n"
+                   "Leverage : Specified leverage : 15 short et long\n"
+                   "Copy mode : Multiplier avec un multiplier de {:.2f}\n".format(multiplier))
 
 
 @funding.error

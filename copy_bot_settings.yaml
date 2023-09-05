@@ -1,3 +1,5 @@
 alphabot:
-  maxDD: 0.17
-  levier_max: 15
+  maxDD: 15
+  positionSize: 1000
+  avgNumberPositions: 5
+  capital: 2000
