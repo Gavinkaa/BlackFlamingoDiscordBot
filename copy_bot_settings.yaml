@@ -1,3 +1,7 @@
 alphabot:
-  maxDD: 0.17
-  levier_max: 15
+  maxDD: 15
+  avgPositionSize: 1000
+  smallestPositionSize: 330
+  leverage: 15
+  avgNumberPositions: 5
+  capital: 2000
