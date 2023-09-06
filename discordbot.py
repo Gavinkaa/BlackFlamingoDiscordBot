@@ -64,7 +64,6 @@ bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL, send_co
 async def coinalyze(ctx):
     pass
 
-
 @coinalyze.subcommand(sub_cmd_name="indicator",
                       sub_cmd_description="Display the actual aggregated fundings from exchanges")
 @slash_option(name="indicator_type",
@@ -80,7 +79,6 @@ async def coinalyze_indicator(ctx, indicator_type: str):
         await ctx.send(file=File(io.BytesIO(img), "chart.png"))
     else:
         await ctx.send("Erreur lors de la récupération des données")
-
 
 async def get_coinalyze_data(indicator_type: str):
     chrome_options = ChromeOptions()
@@ -445,6 +443,7 @@ async def copy(ctx):
 
 @copy.subcommand(sub_cmd_name="size",
                     sub_cmd_description="Calculer la taille de position optimale pour le copy trading Bitget")
+
 @slash_option(name="bot_name",
               description="Nom du bot à copier",
               opt_type=interactions.OptionType.STRING,
@@ -454,10 +453,12 @@ async def copy(ctx):
               description="Capital total que vous souhaitez dédier au copy trading",
               required=True,
               opt_type=interactions.OptionType.INTEGER)
+
 @slash_option(name="dd_max_user",
                 description="Drawdown maximal sur votre capital, doit etre inférieur à 60%. Par défaut 30%",
                 required=False,
                 opt_type=interactions.OptionType.INTEGER)
+
 @cooldown(Buckets.USER, 1, 20)
 async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_name: str = "alphabot"):
     with open('copy_bot_settings.yaml', 'r') as bot_settings:
@@ -468,6 +469,7 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
     dd_max_bot = donnees[bot_name]["maxDD"]
     capital_bot = donnees[bot_name]["capital"]
     smallest_position_size_bot = donnees[bot_name]["smallestPositionSize"]
+
 
     if dd_max_user > 60:
         await ctx.send("Le drawdown maximal doit être inférieur à 60%")
