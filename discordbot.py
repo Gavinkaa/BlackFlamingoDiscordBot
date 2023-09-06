@@ -38,12 +38,12 @@ load_dotenv()
 #     config = json.load(config_file)
 
 # TOKEN = config['discord_token']
-# kucoin = ccxt.kucoin({
-#     "apiKey": "nope",
-#     "secret": 'nope',
-#     "password": "nope",
-#     'enableRateLimit': True,
-# })
+kucoin = ccxt.kucoin({
+    "apiKey": "nope",
+    "secret": 'nope',
+    "password": "nope",
+    'enableRateLimit': True,
+})
 
 intents = Intents.all()
 
