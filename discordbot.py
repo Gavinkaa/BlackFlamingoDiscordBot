@@ -29,11 +29,17 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from dotenv import load_dotenv
 import os
+from dotenv import dotenv_values
 
+# THISMA cfg
+# TOKEN = dotenv_values()['discord_token']  # For thisma the maxi bg
+# load_dotenv()
 
+# LUDO cfg
 with open("config.json") as config_file:
     config = json.load(config_file)
 TOKEN = config['discord_token']
+
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
     "secret": 'nope',
@@ -443,7 +449,7 @@ async def copy(ctx):
               opt_type=interactions.OptionType.STRING,
               required=True,
               choices=[SlashCommandChoice(name="alphabot", value="alphabot")])
-@slash_option(name="capital_total",
+@slash_option(name="capital_user",
               description="Capital total que vous souhaitez dédier au copy trading",
               required=True,
               opt_type=interactions.OptionType.INTEGER)
@@ -462,9 +468,8 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
 
     dd_max_bot = donnees[bot_name]["maxDD"]
     capital_bot = donnees[bot_name]["capital"]
-    avg_position_size_bot = donnees[bot_name]["avgPositionSize"]
     smallest_position_size_bot = donnees[bot_name]["smallestPositionSize"]
-    leverage = donnees[bot_name]["leverage"]
+
 
     if dd_max_user > 60:
         await ctx.send("Le drawdown maximal doit être inférieur à 60%")
