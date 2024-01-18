@@ -28,7 +28,7 @@ class Event:
             events_str += "".join([str(event) for event in day['events']])
         formatted_str = f"```\n{header_str + events_str}\n{footer_str}```"
         return formatted_str
-        # embed = interactions.Embed(fields=[interactions.EmbedField(name='bite',value=header_str+events_str)])
+        # embed = interactions.Embed(fields=[interactions.EmbedField(name='what',value=header_str+events_str)])
         # return embed
 
     @classmethod
