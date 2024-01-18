@@ -495,6 +495,7 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
                    "Copy mode : Multiplier avec un multiplier de {:.2f}\n".format(multiplier))
 
 
+# TODO for the group : testing + add picture of exchange logo for the exchange selection, add selection name
 @slash_command(name='calls', description="Commands for the calls section")
 async def calls(ctx):
     pass
@@ -536,21 +537,30 @@ async def calls(ctx):
               required=False)
 async def new_trade(ctx, pair, trade_direction, index, entry_price, tp_price, sl_price, success_estimation,
                     screenshot=None):
-    pair = pair.Upper()
+    if (tp_price <= entry_price and trade_direction == "long") or (
+            tp_price >= entry_price and trade_direction == "short"):
+        await ctx.send(
+            "Le prix du take profit doit être supérieur au prix d'entrée pour un trade long et inférieur pour un trade short")
+        return
+
+    color = 5800279 if trade_direction == "long" else 12653087
+    pair = pair.upper()
     rr = (tp_price - entry_price) / (entry_price - sl_price)
     tp_perc = abs((tp_price - entry_price) / entry_price * 100)
     sl_perc = -abs((sl_price - entry_price) / entry_price * 100)
-    ev = tp_perc / 100 * success_estimation / 100 + sl_perc / 100 * (100 - success_estimation / 100)
+    ev = (tp_perc * success_estimation + sl_perc * (100 - success_estimation))/100
+
     embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
                                description="Trade ajouté par {}".format(ctx.author.display_name),
-                               color='588157' if trade_direction == "long" else 'c1121f')
+                               color=color)
     embed.add_field(name="Entry price", value=entry_price)
-    embed.add_field(name="Take profit", value="{} - {}".format(tp_price, tp_perc))
+    embed.add_field(name="Take profit", value="{} / {:.2f}%".format(tp_price, tp_perc))
 
     embed.add_field(name="Stop loss",
                     value="{} / {}%".format(sl_price, sl_perc))
-    embed.add_field(name="RR / EV", value="{} / {}".format(rr, ev))
-    # embed.set_image(screenshot)
+    embed.add_field(name="RR / EV", value="{:.2f} / {:.2f}".format(rr, ev))
+    if screenshot:
+        embed.set_image(screenshot.url)
     await ctx.send(embed=embed)
 
 
@@ -589,10 +599,11 @@ async def new_trade(ctx, pair, trade_direction, index, entry_price, tp_price, sl
               required=True)
 async def position_adjustment(ctx, pair, trade_direction, index, position_operation, operation_size, adjustment_price,
                               reason):
-    pair = pair.Upper()
+    pair = pair.upper()
+    color = 5800279 if trade_direction == "long" else 12653087
     embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
                                description="Ajustement de position ajouté par {}".format(ctx.author.display_name),
-                               color='588157' if trade_direction == "long" else 'c1121f')
+                               color=color)
     embed.add_field(name="Opération", value="{} / {}".format(position_operation, operation_size))
     embed.add_field(name="Prix d'ajustement", value=adjustment_price)
     embed.add_field(name="Raison", value=reason)
@@ -627,11 +638,12 @@ async def position_adjustment(ctx, pair, trade_direction, index, position_operat
               opt_type=interactions.OptionType.STRING,
               required=True)
 async def position_summary(ctx, pair, trade_direction, index, profit_loss_in_perc, profit_loss_in_r, comment):
-    pair = pair.Upper()
+    pair = pair.upper()
+    color = 5800279 if trade_direction == "long" else 12653087
     embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
                                description="Ajustement de position ajouté par {}".format(ctx.author.display_name),
-                               color='588157' if trade_direction == "long" else 'c1121f')
-    embed.add_field(name="Profit/Loss", value="{}% / {}R".format(profit_loss_in_perc, profit_loss_in_r))
+                               color=color)
+    embed.add_field(name="Profit/Loss", value="{.2f}% / {.2f}R".format(profit_loss_in_perc, profit_loss_in_r))
     embed.add_field(name="Commentaire", value=comment)
     await ctx.send(embed=embed)
 
@@ -640,6 +652,7 @@ async def position_summary(ctx, pair, trade_direction, index, profit_loss_in_per
 @lending.error
 @location.error
 @calendar.error
+@calls.error
 async def on_command_error(ctx, error):
     if isinstance(error, OnCooldownError):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
