@@ -16,7 +16,8 @@ import dateutil.parser
 from discord import Intents
 
 import interactions
-from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets, File
+from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets, File, \
+    Permissions, slash_default_member_permission
 
 from dateutil import tz
 from selenium.webdriver.support.wait import WebDriverWait
@@ -495,8 +496,11 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
                    "Copy mode : Multiplier avec un multiplier de {:.2f}\n".format(multiplier))
 
 
-# TODO for the group : testing + add picture of exchange logo for the exchange selection, add selection name
+
+
+
 @slash_command(name='calls', description="Commands for the calls section")
+@slash_default_member_permission(Permissions.ADMINISTRATOR)
 async def calls(ctx):
     pass
 
