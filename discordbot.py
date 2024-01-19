@@ -548,17 +548,18 @@ async def new_trade(ctx, pair, trade_direction, index, entry_price, tp_price, sl
     rr = (tp_price - entry_price) / (entry_price - sl_price)
     tp_perc = abs((tp_price - entry_price) / entry_price * 100)
     sl_perc = -abs((sl_price - entry_price) / entry_price * 100)
-    ev = (tp_perc * success_estimation + sl_perc * (100 - success_estimation))/100
+    ev = (tp_perc * success_estimation + sl_perc * (100 - success_estimation)) / 100
 
     embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
-                               description="Trade ajouté par {}".format(ctx.author.display_name),
-                               color=color)
-    embed.add_field(name="Entry price", value=entry_price)
-    embed.add_field(name="Take profit", value="{} / {:.2f}%".format(tp_price, tp_perc))
+                               color=color,
+                               author=interactions.EmbedAuthor(name=ctx.author.display_name,
+                                                               icon_url=ctx.author.avatar_url))
+    embed.add_field(name="Entry price", value="{}$".format(entry_price))
+    embed.add_field(name="Take profit", value="{}$ / {:.1f}%".format(tp_price, tp_perc))
 
     embed.add_field(name="Stop loss",
-                    value="{} / {}%".format(sl_price, sl_perc))
-    embed.add_field(name="RR / EV", value="{:.2f} / {:.2f}".format(rr, ev))
+                    value="{}$ / {:.1f}%".format(sl_price, sl_perc))
+    embed.add_field(name="RR / EV", value="{:.1f} / {:.1f}".format(rr, ev))
     if screenshot:
         embed.set_image(screenshot.url)
     await ctx.send(embed=embed)
@@ -577,7 +578,7 @@ async def new_trade(ctx, pair, trade_direction, index, entry_price, tp_price, sl
                        SlashCommandChoice(name="short", value="short")])
 @slash_option(name="index",
               description="index du trade dans le canal",
-              opt_type=interactions.OptionType.NUMBER,
+              opt_type=interactions.OptionType.INTEGER,
               required=True)
 @slash_option(name="position_operation",
               description="opération d'ajustement de position",
@@ -586,7 +587,7 @@ async def new_trade(ctx, pair, trade_direction, index, entry_price, tp_price, sl
               choices=[SlashCommandChoice(name="addition", value="addition"),
                        SlashCommandChoice(name="reduction", value="réduction")])
 @slash_option(name="operation_size",
-              description="taille de l'opération",
+              description="taille de l'opération en %",
               opt_type=interactions.OptionType.NUMBER,
               required=True)
 @slash_option(name="adjustment_price",
@@ -602,10 +603,12 @@ async def position_adjustment(ctx, pair, trade_direction, index, position_operat
     pair = pair.upper()
     color = 5800279 if trade_direction == "long" else 12653087
     embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
-                               description="Ajustement de position ajouté par {}".format(ctx.author.display_name),
-                               color=color)
-    embed.add_field(name="Opération", value="{} / {}".format(position_operation, operation_size))
-    embed.add_field(name="Prix d'ajustement", value=adjustment_price)
+                               color=color,
+                               author=interactions.EmbedAuthor(name=ctx.author.display_name,
+                                                               icon_url=ctx.author.avatar_url)
+                               )
+    embed.add_field(name="Opération", value="{} / {}%".format(position_operation, operation_size))
+    embed.add_field(name="Prix d'ajustement", value="{}$".format(adjustment_price))
     embed.add_field(name="Raison", value=reason)
     await ctx.send(embed=embed)
 
@@ -623,7 +626,7 @@ async def position_adjustment(ctx, pair, trade_direction, index, position_operat
                        SlashCommandChoice(name="short", value="short")])
 @slash_option(name="index",
               description="index du trade dans le canal",
-              opt_type=interactions.OptionType.NUMBER,
+              opt_type=interactions.OptionType.INTEGER,
               required=True)
 @slash_option(name="profit_loss_in_perc",
               description="profit/loss en pourcentage",
@@ -641,9 +644,10 @@ async def position_summary(ctx, pair, trade_direction, index, profit_loss_in_per
     pair = pair.upper()
     color = 5800279 if trade_direction == "long" else 12653087
     embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
-                               description="Ajustement de position ajouté par {}".format(ctx.author.display_name),
+                               author=interactions.EmbedAuthor(name=ctx.author.display_name,
+                                                               icon_url=ctx.author.avatar_url),
                                color=color)
-    embed.add_field(name="Profit/Loss", value="{.2f}% / {.2f}R".format(profit_loss_in_perc, profit_loss_in_r))
+    embed.add_field(name="Profit/Loss", value="{:.1f}% / {:.1f}R".format(profit_loss_in_perc, profit_loss_in_r))
     embed.add_field(name="Commentaire", value=comment)
     await ctx.send(embed=embed)
 
