@@ -34,13 +34,13 @@ import os
 from dotenv import dotenv_values
 
 # THISMA cfg
-TOKEN = dotenv_values()['discord_token']  # For thisma the maxi bg
-load_dotenv()
+# TOKEN = dotenv_values()['discord_token']  # For thisma the maxi bg
+# load_dotenv()
 
 # LUDO cfg
-# with open("config.json") as config_file:
-#     config = json.load(config_file)
-# TOKEN = config['discord_token']
+with open("config.json") as config_file:
+    config = json.load(config_file)
+TOKEN = config['discord_token']
 
 kucoin = ccxt.kucoin({
     "apiKey": "nope",
