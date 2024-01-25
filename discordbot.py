@@ -2,6 +2,7 @@ import asyncio
 import io
 
 import json
+import math
 import re
 import time
 
@@ -15,7 +16,8 @@ import dateutil.parser
 from discord import Intents
 
 import interactions
-from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets, File
+from interactions import slash_command, slash_option, SlashContext, SlashCommandChoice, cooldown, Buckets, File, \
+    Permissions, slash_default_member_permission
 
 from dateutil import tz
 from selenium.webdriver.support.wait import WebDriverWait
@@ -64,6 +66,7 @@ bot = interactions.Client(token=TOKEN, intents=interactions.Intents.ALL, send_co
 async def coinalyze(ctx):
     pass
 
+
 @coinalyze.subcommand(sub_cmd_name="indicator",
                       sub_cmd_description="Display the actual aggregated fundings from exchanges")
 @slash_option(name="indicator_type",
@@ -79,6 +82,7 @@ async def coinalyze_indicator(ctx, indicator_type: str):
         await ctx.send(file=File(io.BytesIO(img), "chart.png"))
     else:
         await ctx.send("Erreur lors de la récupération des données")
+
 
 async def get_coinalyze_data(indicator_type: str):
     chrome_options = ChromeOptions()
@@ -442,8 +446,7 @@ async def copy(ctx):
 
 
 @copy.subcommand(sub_cmd_name="size",
-                    sub_cmd_description="Calculer la taille de position optimale pour le copy trading Bitget")
-
+                 sub_cmd_description="Calculer la taille de position optimale pour le copy trading Bitget")
 @slash_option(name="bot_name",
               description="Nom du bot à copier",
               opt_type=interactions.OptionType.STRING,
@@ -453,12 +456,10 @@ async def copy(ctx):
               description="Capital total que vous souhaitez dédier au copy trading",
               required=True,
               opt_type=interactions.OptionType.INTEGER)
-
 @slash_option(name="dd_max_user",
-                description="Drawdown maximal sur votre capital, doit etre inférieur à 60%. Par défaut 30%",
-                required=False,
-                opt_type=interactions.OptionType.INTEGER)
-
+              description="Drawdown maximal sur votre capital, doit etre inférieur à 60%. Par défaut 30%",
+              required=False,
+              opt_type=interactions.OptionType.INTEGER)
 @cooldown(Buckets.USER, 1, 20)
 async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_name: str = "alphabot"):
     with open('copy_bot_settings.yaml', 'r') as bot_settings:
@@ -469,7 +470,6 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
     dd_max_bot = donnees[bot_name]["maxDD"]
     capital_bot = donnees[bot_name]["capital"]
     smallest_position_size_bot = donnees[bot_name]["smallestPositionSize"]
-
 
     if dd_max_user > 60:
         await ctx.send("Le drawdown maximal doit être inférieur à 60%")
@@ -485,8 +485,9 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
 
     multiplier = (capital_user / capital_bot) * (dd_max_user / dd_max_bot)
 
-    if multiplier*smallest_position_size_bot < 100:
-        await ctx.send("Le capital total est trop faible pour le drawdown maximal choisi, une position doit etre supérieure à 100$")
+    if multiplier * smallest_position_size_bot < 100:
+        await ctx.send(
+            "Le capital total est trop faible pour le drawdown maximal choisi, une position doit etre supérieure à 100$")
         return
 
     await ctx.send("Vos réglages optimaux pour le copy trading Bitget sont les suivants (Cliquer sur Advanced) : \n"
@@ -495,10 +496,171 @@ async def size(ctx: SlashContext, capital_user: int, dd_max_user: int = 30, bot_
                    "Copy mode : Multiplier avec un multiplier de {:.2f}\n".format(multiplier))
 
 
+
+
+
+@slash_command(name='calls', description="Commands for the calls section")
+@slash_default_member_permission(Permissions.ADMINISTRATOR)
+async def calls(ctx):
+    pass
+
+
+@calls.subcommand(sub_cmd_name="new_trade", sub_cmd_description="Ajouter un nouveau trade")
+@slash_option(name="pair",
+              description="pair du trade (ex: BTC/USDT)",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
+@slash_option(name="trade_direction",
+              description="direction du trade",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="long", value="long"), SlashCommandChoice(name="short", value="short")])
+@slash_option(name="index",
+              description="index du trade dans le canal",
+              opt_type=interactions.OptionType.INTEGER,
+              required=True)
+@slash_option(name="entry_price",
+              description="prix d'entrée du trade",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="tp_price",
+              description="prix du take profit",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="sl_price",
+              description="prix du stop loss",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="success_estimation",
+              description="estimation de la probabilité d'atteindre le tp (en %)",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="screenshot",
+              description="screenshot du trade",
+              opt_type=interactions.OptionType.ATTACHMENT,
+              required=False)
+async def new_trade(ctx, pair, trade_direction, index, entry_price, tp_price, sl_price, success_estimation,
+                    screenshot=None):
+    if (tp_price <= entry_price and trade_direction == "long") or (
+            tp_price >= entry_price and trade_direction == "short"):
+        await ctx.send(
+            "Le prix du take profit doit être supérieur au prix d'entrée pour un trade long et inférieur pour un trade short")
+        return
+
+    color = 5800279 if trade_direction == "long" else 12653087
+    pair = pair.upper()
+    rr = (tp_price - entry_price) / (entry_price - sl_price)
+    tp_perc = abs((tp_price - entry_price) / entry_price * 100)
+    sl_perc = -abs((sl_price - entry_price) / entry_price * 100)
+    ev = (tp_perc * success_estimation + sl_perc * (100 - success_estimation)) / 100
+
+    embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
+                               color=color,
+                               author=interactions.EmbedAuthor(name=ctx.author.display_name,
+                                                               icon_url=ctx.author.avatar_url))
+    embed.add_field(name="Entry price", value="{}$".format(entry_price))
+    embed.add_field(name="Take profit", value="{}$ / {:.1f}%".format(tp_price, tp_perc))
+
+    embed.add_field(name="Stop loss",
+                    value="{}$ / {:.1f}%".format(sl_price, sl_perc))
+    embed.add_field(name="RR / EV", value="{:.1f} / {:.1f}".format(rr, ev))
+    if screenshot:
+        embed.set_image(screenshot.url)
+    await ctx.send(embed=embed)
+
+
+@calls.subcommand(sub_cmd_name="position_adjustment", sub_cmd_description="Ajouter un ajustement de position")
+@slash_option(name="pair",
+              description="pair du trade (ex: BTC/USDT)",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
+@slash_option(name="trade_direction",
+              description="direction du trade",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="long", value="long"),
+                       SlashCommandChoice(name="short", value="short")])
+@slash_option(name="index",
+              description="index du trade dans le canal",
+              opt_type=interactions.OptionType.INTEGER,
+              required=True)
+@slash_option(name="position_operation",
+              description="opération d'ajustement de position",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="addition", value="addition"),
+                       SlashCommandChoice(name="reduction", value="réduction")])
+@slash_option(name="operation_size",
+              description="taille de l'opération en %",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="adjustment_price",
+              description="prix d'ajustement",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="reason",
+              description="raison de l'ajustement",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
+async def position_adjustment(ctx, pair, trade_direction, index, position_operation, operation_size, adjustment_price,
+                              reason):
+    pair = pair.upper()
+    color = 5800279 if trade_direction == "long" else 12653087
+    embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
+                               color=color,
+                               author=interactions.EmbedAuthor(name=ctx.author.display_name,
+                                                               icon_url=ctx.author.avatar_url)
+                               )
+    embed.add_field(name="Opération", value="{} / {}%".format(position_operation, operation_size))
+    embed.add_field(name="Prix d'ajustement", value="{}$".format(adjustment_price))
+    embed.add_field(name="Raison", value=reason)
+    await ctx.send(embed=embed)
+
+
+@calls.subcommand(sub_cmd_name="position_summary", sub_cmd_description="Ajouter un résumé de position")
+@slash_option(name="pair",
+              description="pair du trade (ex: BTC/USDT)",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
+@slash_option(name="trade_direction",
+              description="direction du trade",
+              opt_type=interactions.OptionType.STRING,
+              required=True,
+              choices=[SlashCommandChoice(name="long", value="long"),
+                       SlashCommandChoice(name="short", value="short")])
+@slash_option(name="index",
+              description="index du trade dans le canal",
+              opt_type=interactions.OptionType.INTEGER,
+              required=True)
+@slash_option(name="profit_loss_in_perc",
+              description="profit/loss en pourcentage",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="profit_loss_in_r",
+              description="profit/loss en R",
+              opt_type=interactions.OptionType.NUMBER,
+              required=True)
+@slash_option(name="comment",
+              description="commentaire",
+              opt_type=interactions.OptionType.STRING,
+              required=True)
+async def position_summary(ctx, pair, trade_direction, index, profit_loss_in_perc, profit_loss_in_r, comment):
+    pair = pair.upper()
+    color = 5800279 if trade_direction == "long" else 12653087
+    embed = interactions.Embed(title="{} - {} - #{}".format(pair, trade_direction, index),
+                               author=interactions.EmbedAuthor(name=ctx.author.display_name,
+                                                               icon_url=ctx.author.avatar_url),
+                               color=color)
+    embed.add_field(name="Profit/Loss", value="{:.1f}% / {:.1f}R".format(profit_loss_in_perc, profit_loss_in_r))
+    embed.add_field(name="Commentaire", value=comment)
+    await ctx.send(embed=embed)
+
+
 @funding.error
 @lending.error
 @location.error
 @calendar.error
+@calls.error
 async def on_command_error(ctx, error):
     if isinstance(error, OnCooldownError):
         msg = ':exclamation: To avoid api congestion, this command is on cooldown, please try again in {:.2f}s :exclamation:'.format(
